@@ -85,8 +85,8 @@ export default function BingoCell({
 				{displaySlotItems && (
 					<div className="flex py-1 px-2 justify-center items-center gap-1 self-stretch rounded-2xl border border-solid border-white border-opacity-10 bg-white bg-opacity-5">
 						{variant &&
-							slotItems.map((item) =>
-								bingocellIcon(variant, item.color, item.number)
+							slotItems.map((item, i) =>
+								bingocellIcon(variant, item.color, item.number, i)
 							)}
 					</div>
 				)}

@@ -42,10 +42,10 @@ export default function BingoCard({ modeName, lobbyName, mode, size, bingoData, 
 			</div>
 			<div className="flex flex-col items-center gap-2 self-stretch">
 
-        {bingoData2d.map((row) => (
-          <div className="flex justify-center items-center gap-2" key={ row.map((cell) => cell.title).join("") }>
-            {row.map((cell) => (
-              <BingoCell title={cell.title ?? ""} slotItems={cell.slotItems} variant={mode} property="slotted" action={cell.locked ? "locked" : cell.disabled ? "disabled" : "default"} disabled={cell.disabled} favorite={cell.favorite} locked={cell.locked} key={cell.title}/>
+        {bingoData2d.map((row, i) => (
+          <div className="flex justify-center items-center gap-2" key={i}>
+            {row.map((cell, j) => (
+              <BingoCell key={j} title={cell.title ?? ""} slotItems={cell.slotItems} variant={mode} property="slotted" action={cell.locked ? "locked" : cell.disabled ? "disabled" : "default"} disabled={cell.disabled} favorite={cell.favorite} locked={cell.locked} />
             ))}
           </div>
         ))}
