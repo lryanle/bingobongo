@@ -29,6 +29,7 @@ export const metadata: Metadata = {
 		"Server Components",
 		"Radix UI",
 		"MongoDB",
+    "Prisma",
 		"Typescript",
 		"Bingo",
 		"Bingo Bongo",

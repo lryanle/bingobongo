@@ -17,7 +17,6 @@ import { signOut, useSession } from "next-auth/react";
 export function MobileNavbar() {
   const [open, setOpen] = React.useState(false)
   const session = useSession()
-  console.log(session)
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
