@@ -29,7 +29,7 @@ export const metadata: Metadata = {
 		"Server Components",
 		"Radix UI",
 		"MongoDB",
-    "Prisma",
+		"Prisma",
 		"Typescript",
 		"Bingo",
 		"Bingo Bongo",
@@ -68,9 +68,18 @@ export const metadata: Metadata = {
 		creator: "@lryanle",
 	},
 	icons: {
-		icon: "/favicon.ico",
-		shortcut: "/favicon-16x16.png",
-		apple: "/apple-touch-icon.png",
+		icon: [
+			{
+				media: "(prefers-color-scheme: light)",
+				url: "/images/favicon-light.png",
+				href: "/images/favicon-light.png",
+			},
+			{
+				media: "(prefers-color-scheme: dark)",
+				url: "/images/favicon-dark.png",
+				href: "/images/favicon-dark.png",
+			},
+		],
 	},
 	manifest: `${siteConfig.url}/site.webmanifest`,
 };
@@ -79,9 +88,9 @@ export default async function RootLayout({
 	children,
 }: Readonly<{
 	children: React.ReactNode;
-  session: Session;
+	session: Session;
 }>) {
-  const session = await getServerSession(authOptions)
+	const session = await getServerSession(authOptions);
 
 	return (
 		<>
