@@ -1,6 +1,7 @@
 "use client"
 
 import BingoCard, { BingoCardProps } from "@/components/bingo-card/bingocard";
+import CreateBingo from "@/components/new-game/createbingo";
 import { redirect, useRouter } from "next/navigation";
 
 export default function Home() {
@@ -53,8 +54,9 @@ export default function Home() {
 	return (
 		<main>
       <div>
+				<CreateBingo partyleader={"lryanle"} />
         {/* <BingoCard mode={BingoCardArgs.mode } modeName={BingoCardArgs.modeName} lobbyName={BingoCardArgs.lobbyName} size={5} bingoData={BingoCardArgs.bingoData as BingoCardProps["bingoData"]} /> */}
-        <button onClick={createRoom}>Create room</button>
+        {/* <button onClick={createRoom}>Create room</button>
         <div className='flex gap-2'>
           <input
             type='text'
@@ -63,7 +65,7 @@ export default function Home() {
           />
 
           <button onClick={() => redirect(`/bingo/${roomIdInput}`)}>Join room</button>
-        </div>
+        </div> */}
       </div>
     </main>
 	);

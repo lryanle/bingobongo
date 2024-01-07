@@ -1,19 +1,4 @@
-const getTextColor = (hex: string) => {
-  const threshold = 130;
-  
-  function cutHex(h: string) {return (h.charAt(0)=="#") ? h.substring(1,7):h}
-  const cBrightness = ((parseInt((cutHex(hex)).substring(0,2),16) * 299) + (parseInt((cutHex(hex)).substring(2,4),16) * 587) + (parseInt((cutHex(hex)).substring(4,6),16) * 114)) / 1000;
-  if (cBrightness > threshold) { return "black"; } else { return "white"; }	
-}
-
-const modifyColor = (color: string, percent: number) => {
-  var num = parseInt(color.replace("#",""),16),
-  amt = Math.round(2.55 * percent),
-  R = (num >> 16) + amt,
-  B = (num >> 8 & 0x00FF) + amt,
-  G = (num & 0x0000FF) + amt;
-  return "#" + (0x1000000 + (R<255?R<1?0:R:255)*0x10000 + (B<255?B<1?0:B:255)*0x100 + (G<255?G<1?0:G:255)).toString(16).slice(1);
-}
+import { getTextColor, modifyColor } from "@/lib/utils";
 
 export const bingocellIcon = (type: "default" | "battleship" | "favorite" | "locked", color: string, number?: number, key?: number): React.ReactElement => {
   if (type === "favorite") {
@@ -30,13 +15,11 @@ export const bingocellIcon = (type: "default" | "battleship" | "favorite" | "loc
     if (number === 4) return (<svg key={key} width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"> <path fillRule="evenodd" clipRule="evenodd" d="M0.954543 10.2727L2.68182 16.3636C3.43939 16.3636 4.12878 16.1856 4.75 15.8295C5.37121 15.4735 5.90909 15.0455 6.36363 14.5455C6.81818 15.0455 7.35606 15.4735 7.97727 15.8295C8.59848 16.1856 9.27272 16.3636 10 16.3636C10.7273 16.3636 11.4015 16.1856 12.0227 15.8295C12.6439 15.4735 13.1818 15.0455 13.6364 14.5455C14.0909 15.0455 14.6288 15.4735 15.25 15.8295C15.8712 16.1856 16.5606 16.3636 17.3182 16.3636L19.0455 10.2727C19.0909 10.1061 19.0833 9.9053 19.0227 9.67045C18.9621 9.43561 18.7727 9.25758 18.4545 9.13636L17.2727 8.72727V4.54545C17.2727 4.04545 17.0947 3.61742 16.7386 3.26136C16.3826 2.9053 15.9545 2.72727 15.4545 2.72727H12.7273V0H7.27272V2.72727H4.54545C4.04545 2.72727 3.61742 2.9053 3.26136 3.26136C2.9053 3.61742 2.72727 4.04545 2.72727 4.54545V8.72727L1.54545 9.13636C1.27272 9.22727 1.09469 9.39394 1.01136 9.63636C0.928028 9.87879 0.909088 10.0909 0.954543 10.2727ZM0.909088 18.1818V20H2.72727C3.36363 20 3.98485 19.9242 4.59091 19.7727C5.19697 19.6212 5.78788 19.3939 6.36363 19.0909C6.93939 19.3939 7.53409 19.6212 8.14772 19.7727C8.76136 19.9242 9.37879 20 10 20C10.6212 20 11.2386 19.9242 11.8523 19.7727C12.4659 19.6212 13.0606 19.3939 13.6364 19.0909C14.2121 19.3939 14.803 19.6212 15.4091 19.7727C16.0151 19.9242 16.6364 20 17.2727 20H19.0909V18.1818H17.2727C16.6364 18.1818 16.0076 18.0833 15.3864 17.8864C14.7651 17.6894 14.1818 17.3939 13.6364 17C13.0909 17.3939 12.5076 17.6818 11.8864 17.8636C11.2651 18.0455 10.6364 18.1364 10 18.1364C9.36363 18.1364 8.73485 18.0455 8.11363 17.8636C7.49242 17.6818 6.90909 17.3939 6.36363 17C5.81818 17.3939 5.23485 17.6894 4.61363 17.8864C3.99242 18.0833 3.36363 18.1818 2.72727 18.1818H0.909088ZM15.4545 8.13636L10 6.36364L4.54545 8.13636V4.54545H15.4545V8.13636ZM12.4793 14.5455H10.7438V12.9545H7.27272V8.18182H9.00826V11.3636H10.7438V8.18182H12.4793V11.3636H13.6364V12.9545H12.4793V14.5455Z" fill={color}/> </svg>);
   }
 
-  const textcolor = getTextColor(color)
-
   return (
     <div
       key={key}
       className={`flex w-4 h-4 flex-col justify-center items-center shrink-0 rounded-full text-xs font-bold`}
-      style={{backgroundColor: color, color: modifyColor(color, textcolor === "white" ? 75 : -75)}}
+      style={{backgroundColor: color, color: modifyColor(color, getTextColor(color) === "white" ? 75 : -75)}}
     >
       {number}  
     </div>
