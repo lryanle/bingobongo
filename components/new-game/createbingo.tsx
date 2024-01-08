@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -19,12 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Icons } from "@/components/icons";
 import { getTextColor, modifyColor } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from "@/components/ui/popover";
-import { SetStateAction, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { HexColorPicker, HexColorInput } from "react-colorful";
 import {
   Dialog,
@@ -46,6 +40,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { bingoConfig } from "@/config/bingo";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Slider } from "@/components/ui/slider";
+import { Textarea } from "@/components/ui/textarea";
 
 const teamNameSchema = z
   .string()
@@ -136,8 +136,11 @@ function getDefaults<Schema extends z.AnyZodObject>(schema: Schema) {
 
 //Need: lobby owner's username,
 export default function CreateBingo({ partyleader }: CreateBingoProps) {
+  const [mounted, setMounted] = useState(false);
+
   const [roomName, setRoomName] = useState(`${partyleader}'s Room`);
   const [bingoSeed, setBingoSeed] = useState("");
+  const [preset, setPreset] = useState("");
   const [teams, setTeams] = useState([
     { name: "Team 1", color: "#b91c1c" },
     { name: "Team 2", color: "#eab308" },
@@ -157,7 +160,6 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
     },
   });
 
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -171,12 +173,11 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
     form.setValue("teams", teams);
   }, [teams, form]);
 
-  // Add Team
   const handleAddTeam = () => {
     const newTeam = {
       name: `Team ${teams.length + 1}`,
       color: `#${Math.floor(Math.random() * 16777215).toString(16)}`,
-    }; // Adjust as needed
+    };
     setTeams([...teams, newTeam]);
   };
 
@@ -215,307 +216,473 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
 
   return (
     <div className="inline-flex w-[calc(100%-1rem)] md:w-auto m-2 md:m-0 md:p-5 flex-col justify-center items-center gap-2 rounded-3xl bg-primary-foreground  shadow">
-      <div className="flex bg-secondary m-4 py-4 md:m-0 md:py-8 flex-col items-center gap-3 self-stretch rounded-2xl bg-opacity-50 backdrop-blur-xl text-primary text-center font-semibold text-4xl md:text-6xl shadow">
+      <div className="flex bg-secondary m-4 md:m-0 py-4 flex-col items-center gap-3 self-stretch rounded-2xl bg-opacity-50 backdrop-blur-xl text-primary text-center font-semibold text-4xl shadow">
         New Bingo
       </div>
-      <div className="flex py-2 px-4 md:px-32 flex-col items-center gap-4 self-stretch">
-        <div className="flex flex-col items-start gap-4 self-stretch">
+      <div className="flex py-2 px-4 md:px-8 flex-col items-center gap-4 self-stretch">
+        <div className="flex flex-col items-start gap-4 self-stretch md:w-[34rem]">
           {mounted ? (
             <Form {...form}>
-              <FormField
-                control={form.control}
-                name="roomName"
-                render={({ field }) => (
-                  <FormItem className="w-full md:auto">
-                    <FormLabel>Room Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder={roomName} {...field} />
-                    </FormControl>
-                    <FormMessage>
-                      {form.formState.errors.roomName?.message}
-                    </FormMessage>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="roomPassword"
-                render={({ field }) => (
-                  <FormItem className="w-full md:auto">
-                    <FormLabel>Room Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Password"
-                        type="password"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage>
-                      {form.formState.errors.roomPassword?.message}
-                    </FormMessage>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="bingoSeed"
-                render={({ field }) => (
-                  <FormItem className="w-full md:auto">
-                    <FormLabel>Bingo Seed</FormLabel>
-                    <FormControl>
-                      <Input placeholder={bingoSeed} {...field} />
-                    </FormControl>
-                    <FormMessage>
-                      {form.formState.errors.bingoSeed?.message}
-                    </FormMessage>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="teams"
-                render={({ field }) => (
-                  <FormItem className="w-full md:auto mb-2 md:mb-0">
-                    <FormLabel>Teams</FormLabel>
-                    <FormControl>
-                      <div className="flex flex-row gap-2 md:flex-wrap overflow-x-scroll md:overflow-x-auto">
-                        {teams.map(({ name, color }, i) => (
-                          <div
-                            key={`team-${i}`}
-                            className="flex h-10 transition-all text-sm font-medium px-5 hover:pr-9 hover:pl-9 items-center gap-2 rounded-lg text-primary group relative cursor-default"
-                            style={{
-                              backgroundColor: color,
-                              color: modifyColor(
-                                color,
-                                getTextColor(color) === "white" ? 65 : -65,
-                              ),
-                            }}
-                          >
-                            <span
-                              key={`paint-${i}`}
-                              className="flex absolute inset-y-0 left-2.5 items-center justify-center w-4 transition-all opacity-0 group-hover:opacity-100"
-                            >
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button
-                                    variant="link"
-                                    type="button"
-                                    size="icon"
+              <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col items-start gap-4 self-stretch md:w-[34rem]">
+                <FormField
+                  control={form.control}
+                  name="roomName"
+                  render={({ field }) => (
+                    <FormItem className="w-full md:auto">
+                      <div className="flex flex-row justify-center items-center">
+                        <FormLabel className="whitespace-nowrap w-48">Room Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder={roomName} {...field} />
+                        </FormControl>
+                      </div>
+                      <FormMessage>
+                        {form.formState.errors.roomName?.message}
+                      </FormMessage>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="roomPassword"
+                  render={({ field }) => (
+                    <FormItem className="w-full md:auto">
+                      <div className="flex flex-row justify-center items-center">
+                        <FormLabel className="whitespace-nowrap w-48">Room Password</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="password"
+                            {...field}
+                          />
+                        </FormControl>
+                      </div>
+                      <FormMessage>
+                        {form.formState.errors.roomPassword?.message}
+                      </FormMessage>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="bingoSeed"
+                  render={({ field }) => (
+                    <FormItem className="w-full md:auto">
+                      <div className="flex flex-row justify-center items-center">
+                        <FormLabel className="whitespace-nowrap w-48">Bingo Seed</FormLabel>
+                        <FormControl>
+                          <Input placeholder={bingoSeed} {...field} />
+                        </FormControl>
+                      </div>
+                      <FormMessage>
+                        {form.formState.errors.bingoSeed?.message}
+                      </FormMessage>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="teams"
+                  render={({ field }) => (
+                    <FormItem className="w-full md:auto">
+                      <div className="flex flex-row justify-center items-start">
+                        <FormLabel className="whitespace-nowrap w-68 mt-3">Teams</FormLabel>
+                        <FormControl>
+                          <div className="flex flex-row w-[calc(100%-7.5rem)] md:w-[25.25rem] gap-2 ">
+                            <ScrollArea className="w-96 whitespace-nowrap rounded-md border">
+                              <div className="flex flex-row gap-3 overflow-x-scroll p-2 shadow-inner">
+                                {teams.map(({ name, color }, i) => (
+                                  <div
+                                    key={`team-${i}`}
+                                    className="flex shadow h-10 transition-all text-sm font-medium px-5 hover:pr-9 hover:pl-9 items-center gap-2 rounded-lg text-primary group relative cursor-default"
                                     style={{
+                                      backgroundColor: color,
                                       color: modifyColor(
                                         color,
-                                        getTextColor(color) === "white"
-                                          ? 65
-                                          : -65,
+                                        getTextColor(color) === "white" ? 65 : -65,
                                       ),
                                     }}
                                   >
-                                    <Icons.edit className="w-4 h-4" />
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="sm:max-w-md">
-                                  <DialogHeader>
-                                    <DialogTitle className="text-2xl">
-                                      Editting {name}
-                                    </DialogTitle>
-                                    <DialogDescription>
-                                      Make team modifications here. Changes are
-                                      updated automatically.
-                                    </DialogDescription>
-                                  </DialogHeader>
+                                    <span
+                                      key={`paint-${i}`}
+                                      className="flex absolute inset-y-0 left-2.5 items-center justify-center w-4 transition-all opacity-0 group-hover:opacity-100"
+                                    >
+                                      <Dialog>
+                                        <DialogTrigger asChild>
+                                          <Button
+                                            variant="link"
+                                            type="button"
+                                            size="icon"
+                                            style={{
+                                              color: modifyColor(
+                                                color,
+                                                getTextColor(color) === "white"
+                                                  ? 65
+                                                  : -65,
+                                              ),
+                                            }}
+                                          >
+                                            <Icons.edit className="w-4 h-4" />
+                                          </Button>
+                                        </DialogTrigger>
+                                        <DialogContent className="sm:max-w-md">
+                                          <DialogHeader>
+                                            <DialogTitle className="text-2xl">
+                                              Editting {name}
+                                            </DialogTitle>
+                                            <DialogDescription>
+                                              Make team modifications here. Changes are
+                                              updated automatically.
+                                            </DialogDescription>
+                                          </DialogHeader>
 
-                                  <Tabs defaultValue="account">
-                                    <TabsList className="grid w-full grid-cols-3">
-                                      <TabsTrigger value="name">
-                                        Name
-                                      </TabsTrigger>
-                                      <TabsTrigger value="color">
-                                        Color
-                                      </TabsTrigger>
-                                      <TabsTrigger value="remove">
-                                        Remove
-                                      </TabsTrigger>
-                                    </TabsList>
-                                    <TabsContent value="name">
-                                      <Card>
-                                        <CardHeader>
-                                          <CardTitle className="text-lg">
-                                            Team Name
-                                          </CardTitle>
-                                          <CardDescription>
-                                            Make changes to{" "}
-                                            <code className="bg-muted line-sp tracking-widest rounded p-0.5">
-                                              {name}
-                                            </code>
-                                            &apos;s name here. Click save when
-                                            you&apos;re done.
-                                          </CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="space-y-2">
-                                          <div className="space-y-1">
-                                            <Input
-                                              id="name"
-                                              defaultValue={name}
-                                              placeholder="Team Name (can't be empty)"
-                                              onChange={(e) =>
-                                                handleNameChange(
-                                                  e.target.value,
-                                                  i,
-                                                )
-                                              }
-                                              autoFocus
-                                            />
-                                          </div>
-                                        </CardContent>
-                                      </Card>
-                                    </TabsContent>
-                                    <TabsContent value="color">
-                                      <Card>
-                                        <CardHeader>
-                                          <CardTitle className="text-lg">
-                                            Team Color
-                                          </CardTitle>
-                                          <CardDescription>
-                                            Modify{" "}
-                                            <code className="bg-muted line-sp tracking-widest rounded p-0.5">
-                                              {name}
-                                            </code>
-                                            &apos;s hex color value here. Hex
-                                            values are accepted in the form of{" "}
-                                            <code className="bg-muted line-sp tracking-widest rounded p-0.5">
-                                              #RRGGBB
-                                            </code>{" "}
-                                            or in the short form{" "}
-                                            <code className="bg-muted line-sp tracking-widest rounded p-0.5">
-                                              #RGB
-                                            </code>
-                                            .
-                                          </CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="space-y-2">
-                                          <div className="space-y-1">
-                                            <div>
-                                              <HexColorPicker
-                                                id="color"
-                                                style={{
-                                                  width: "100%",
-                                                  borderRadius:
-                                                    "0.375rem 0.375rem 0 0",
-                                                }}
-                                                color={color}
-                                                onChange={(color) =>
-                                                  handleColorChange(color, i)
-                                                }
-                                              />
-                                              <div className="flex h-10 mt-4 w-full rounded-md border border-input bg-background text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-                                                <HexColorInput
-                                                  id="color"
-                                                  style={{
-                                                    width: "100%",
-                                                    backgroundColor:
-                                                      "transparent",
-                                                    padding: ".75rem .5rem",
-                                                  }}
-                                                  color={color}
-                                                  onChange={(color) =>
-                                                    handleColorChange(color, i)
-                                                  }
-                                                  prefixed
-                                                  autoFocus
-                                                />
-                                              </div>
-                                            </div>
-                                          </div>
-                                        </CardContent>
-                                      </Card>
-                                    </TabsContent>
-                                    <TabsContent value="remove">
-                                      <Card>
-                                        <CardHeader>
-                                          <CardTitle className="text-lg">
-                                            Remove Team
-                                          </CardTitle>
-                                          <CardDescription>
-                                            Permanently remove team{" "}
-                                            <code className="bg-muted line-sp tracking-widest rounded p-0.5">
-                                              {name}
-                                            </code>
-                                            . This action cannot be undone.
-                                          </CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="space-y-2">
-                                          <div className="space-y-1">
-                                            {/* <DialogClose asChild> */}
-                                            <Button
-                                              id="name"
-                                              type="button"
-                                              variant="destructive"
-                                              onClick={() =>
-                                                handleRemoveTeam(i)
-                                              }
-                                            >
-                                              Remove {name}
-                                            </Button>
-                                            {/* </DialogClose> */}
-                                          </div>
-                                        </CardContent>
-                                      </Card>
-                                    </TabsContent>
-                                  </Tabs>
+                                          <Tabs defaultValue="account">
+                                            <TabsList className="grid w-full grid-cols-3">
+                                              <TabsTrigger value="name">
+                                                Name
+                                              </TabsTrigger>
+                                              <TabsTrigger value="color">
+                                                Color
+                                              </TabsTrigger>
+                                              <TabsTrigger value="remove">
+                                                Remove
+                                              </TabsTrigger>
+                                            </TabsList>
+                                            <TabsContent value="name">
+                                              <Card>
+                                                <CardHeader>
+                                                  <CardTitle className="text-lg">
+                                                    Team Name
+                                                  </CardTitle>
+                                                  <CardDescription>
+                                                    Make changes to{" "}
+                                                    <code className="bg-muted line-sp tracking-widest rounded p-0.5">
+                                                      {name}
+                                                    </code>
+                                                    &apos;s name here. Click save when
+                                                    you&apos;re done.
+                                                  </CardDescription>
+                                                </CardHeader>
+                                                <CardContent className="space-y-2">
+                                                  <div className="space-y-1">
+                                                    <Input
+                                                      id="name"
+                                                      defaultValue={name}
+                                                      placeholder="Team Name (can't be empty)"
+                                                      onChange={(e) =>
+                                                        handleNameChange(
+                                                          e.target.value,
+                                                          i,
+                                                        )
+                                                      }
+                                                      autoFocus
+                                                    />
+                                                  </div>
+                                                </CardContent>
+                                              </Card>
+                                            </TabsContent>
+                                            <TabsContent value="color">
+                                              <Card>
+                                                <CardHeader>
+                                                  <CardTitle className="text-lg">
+                                                    Team Color
+                                                  </CardTitle>
+                                                  <CardDescription>
+                                                    Modify{" "}
+                                                    <code className="bg-muted line-sp tracking-widest rounded p-0.5">
+                                                      {name}
+                                                    </code>
+                                                    &apos;s hex color value here. Hex
+                                                    values are accepted in the form of{" "}
+                                                    <code className="bg-muted line-sp tracking-widest rounded p-0.5">
+                                                      #RRGGBB
+                                                    </code>{" "}
+                                                    or in the short form{" "}
+                                                    <code className="bg-muted line-sp tracking-widest rounded p-0.5">
+                                                      #RGB
+                                                    </code>
+                                                    .
+                                                  </CardDescription>
+                                                </CardHeader>
+                                                <CardContent className="space-y-2">
+                                                  <div className="space-y-1">
+                                                    <div>
+                                                      <HexColorPicker
+                                                        id="color"
+                                                        style={{
+                                                          width: "100%",
+                                                          borderRadius:
+                                                            "0.375rem 0.375rem 0 0",
+                                                        }}
+                                                        color={color}
+                                                        onChange={(color) =>
+                                                          handleColorChange(color, i)
+                                                        }
+                                                      />
+                                                      <div className="flex h-10 mt-4 w-full rounded-md border border-input bg-background text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                                                        <HexColorInput
+                                                          id="color"
+                                                          style={{
+                                                            width: "100%",
+                                                            backgroundColor:
+                                                              "transparent",
+                                                            padding: ".75rem .5rem",
+                                                          }}
+                                                          color={color}
+                                                          onChange={(color) =>
+                                                            handleColorChange(color, i)
+                                                          }
+                                                          prefixed
+                                                          autoFocus
+                                                        />
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                </CardContent>
+                                              </Card>
+                                            </TabsContent>
+                                            <TabsContent value="remove">
+                                              <Card>
+                                                <CardHeader>
+                                                  <CardTitle className="text-lg">
+                                                    Remove Team
+                                                  </CardTitle>
+                                                  <CardDescription>
+                                                    Permanently remove team{" "}
+                                                    <code className="bg-muted line-sp tracking-widest rounded p-0.5">
+                                                      {name}
+                                                    </code>
+                                                    . This action cannot be undone.
+                                                  </CardDescription>
+                                                </CardHeader>
+                                                <CardContent className="space-y-2">
+                                                  <div className="space-y-1">
+                                                    {/* <DialogClose asChild> */}
+                                                    <Button
+                                                      id="name"
+                                                      type="button"
+                                                      variant="destructive"
+                                                      onClick={() =>
+                                                        handleRemoveTeam(i)
+                                                      }
+                                                    >
+                                                      Remove {name}
+                                                    </Button>
+                                                    {/* </DialogClose> */}
+                                                  </div>
+                                                </CardContent>
+                                              </Card>
+                                            </TabsContent>
+                                          </Tabs>
 
-                                  <DialogFooter className="sm:justify-start">
-                                    <DialogClose asChild>
-                                      <Button type="button" variant="secondary">
-                                        Close
+                                          <DialogFooter className="sm:justify-start">
+                                            <DialogClose asChild>
+                                              <Button type="button" variant="secondary">
+                                                Close
+                                              </Button>
+                                            </DialogClose>
+                                          </DialogFooter>
+                                        </DialogContent>
+                                      </Dialog>
+                                    </span>
+                                    <span key={`name-${i}`} className="flex-1 text-nowrap">
+                                      {name}
+                                    </span>
+                                    <span
+                                      key={`remove-${i}`}
+                                      className="flex absolute inset-y-0 right-2.5 items-center justify-center w-4 transition-all opacity-0 group-hover:opacity-100"
+                                    >
+                                      <Button
+                                        variant="link"
+                                        type="button"
+                                        size="icon"
+                                        style={{
+                                          color: modifyColor(
+                                            color,
+                                            getTextColor(color) === "white" ? 65 : -65,
+                                          ),
+                                        }}
+                                        onClick={() => handleRemoveTeam(i)}
+                                      >
+                                        <Icons.minus />
                                       </Button>
-                                    </DialogClose>
-                                  </DialogFooter>
-                                </DialogContent>
-                              </Dialog>
-                            </span>
-                            <span key={`name-${i}`} className="flex-1 text-nowrap">
-                              {name}
-                            </span>
-                            <span
-                              key={`remove-${i}`}
-                              className="flex absolute inset-y-0 right-2.5 items-center justify-center w-4 transition-all opacity-0 group-hover:opacity-100"
-                            >
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                              <ScrollBar orientation="horizontal" />
+                            </ScrollArea>
+                            {teams.length < 8 && (
                               <Button
-                                variant="link"
+                                variant="secondary"
                                 type="button"
-                                size="icon"
-                                style={{
-                                  color: modifyColor(
-                                    color,
-                                    getTextColor(color) === "white" ? 65 : -65,
-                                  ),
-                                }}
-                                onClick={() => handleRemoveTeam(i)}
+                                className="flex shadow h-10 px-2.5 my-2 items-center gap-2 rounded-lg border-primary-foreground border"
+                                onClick={handleAddTeam}
                               >
-                                <Icons.minus />
+                                Add Team
+                                <Icons.plus />
                               </Button>
-                            </span>
+                            )}
                           </div>
-                        ))}
-                        {teams.length < 8 && (
-                          <Button
-                            variant="secondary"
-                            type="button"
-                            className="flex h-10 px-2.5 items-center gap-2 rounded-lg"
-                            onClick={handleAddTeam}
-                          >
-                            Add Team
-                            <Icons.plus />
-                          </Button>
-                        )}
+                        </FormControl>
                       </div>
-                    </FormControl>
-                    <FormMessage>
-                      {form.formState.errors.teams?.message}
-                    </FormMessage>
-                  </FormItem>
-                )}
-              />
+                      <FormMessage>
+                        {form.formState.errors.teams?.message}
+                      </FormMessage>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="gameMode"
+                  render={({ field }) => (
+                    <FormItem className="w-full md:auto flex flex-row justify-between items-center">
+                      <FormLabel className="whitespace-nowrap w-48">Bingo Mode</FormLabel>
+                      <FormControl className="w-full">
+                        <Select>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select a Game Mode" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectLabel>Bingo Game Modes</SelectLabel>
+                              <Separator />
+                              {bingoConfig.modes.map((preset, i) => {
+                                return (<SelectItem value={preset.name.toLowerCase().replaceAll(' ', '-')} key={i}>{preset.name}</SelectItem>)
+                              })}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage>
+                        {form.formState.errors.bingoSeed?.message}
+                      </FormMessage>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="boardSize"
+                  render={({ field }) => (
+                    <FormItem className="w-full md:auto flex flex-row justify-between items-center">
+                      <FormLabel className="whitespace-nowrap w-48">Bingo Preset</FormLabel>
+                      <FormControl>
+                        <div className="flex flex-col justify-center items-center w-full gap-2">
+                          <Slider
+                            defaultValue={[50]}
+                            max={100}
+                            step={50}
+                          />
+                          <div className="flex flex-row justify-between items-center w-full">
+                            <span>3x3</span>
+                            <span>5x5</span>
+                            <span>7x7</span>
+                          </div>
+                        </div>
+                      </FormControl>
+                      <FormMessage>
+                        {form.formState.errors.bingoSeed?.message}
+                      </FormMessage>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="importBingoData"
+                  render={({ field }) => (
+                    <FormItem className="w-full md:auto flex flex-row justify-between items-center">
+                      <FormLabel className="whitespace-nowrap w-48">Bingo Data</FormLabel>
+                      <FormControl>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <div className="w-full flex flex-row justify-between items-center gap-2">
+                              <Button type="button" variant="outline" className="w-2/5">Import Bingo Data</Button>
+                              <ScrollArea className="w-3/5 whitespace-nowrap rounded-md border">
+                                <div className="flex flex-row gap-3 overflow-x-scroll p-2 shadow-inner">
+                                  No data parsed.
+                                  {/* {tags.map((tag) => (
+                                    <>
+                                      <div key={tag} className="text-sm">
+                                        {tag}
+                                      </div>
+                                      <Separator className="my-2" />
+                                    </>
+                                  ))} */}
+                                </div>
+                              </ScrollArea>
+                            </div>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-[425px] md:max-w-[28rem] flex flex-col items-center">
+                            <DialogHeader className="md:w-full md:text-start md:px-7">
+                              <DialogTitle>Import Bingo Data</DialogTitle>
+                              <DialogDescription>
+                                Upload, edit, and view bingo data here. 
+                              </DialogDescription>
+                            </DialogHeader>
+                            <Tabs defaultValue="inputData" className="w-[350px]">
+                              <TabsList className="grid w-full grid-cols-2">
+                                <TabsTrigger value="inputData">Input Data</TabsTrigger>
+                                <TabsTrigger value="viewData">View Data</TabsTrigger>
+                              </TabsList>
+                              <TabsContent value="inputData">
+                                <Card>
+                                  <CardHeader>
+                                    <CardTitle>Input Data</CardTitle>
+                                    <CardDescription>
+                                      Import data here in any delimited format. Parsed data can be viewed in the View Data tab.
+                                    </CardDescription>
+                                  </CardHeader>
+                                  <CardContent className="space-y-2">
+                                    <div className="space-y-1">
+                                      <Label htmlFor="name">Delimeter</Label>
+                                      <CardDescription>{`Supports Regex. Default method is csv (","). `}</CardDescription>
+                                      <Input id="delimeter" defaultValue="," />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <Label htmlFor="username">Import Data</Label>
+                                      <CardDescription>{`Please make sure to wrap the input text in double quotes (").`}</CardDescription>
+                                      <Textarea id="importText" placeholder='"Item 1", "Item 2", "Item 3", ...' />
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              </TabsContent>
+                              <TabsContent value="viewData">
+                                <Card>
+                                  <CardHeader>
+                                    <CardTitle>View Data</CardTitle>
+                                    <CardDescription>
+                                      View parsed bingo import data here. Data can be edited in the Input Data tab.
+                                    </CardDescription>
+                                  </CardHeader>
+                                  <CardContent className="space-y-2">
+                                    <ScrollArea className="max-h-[17rem] w-full rounded-md border">
+                                      <div className="p-4">
+                                        No data parsed.
+                                        {/* {tags.map((tag) => (
+                                          <>
+                                            <div key={tag} className="text-sm">
+                                              {tag}
+                                            </div>
+                                            <Separator className="my-2" />
+                                          </>
+                                        ))} */}
+                                      </div>
+                                    </ScrollArea>
+                                  </CardContent>
+                                </Card>
+                              </TabsContent>
+                            </Tabs>
+                          </DialogContent>
+                        </Dialog>
+                      </FormControl>
+                      <FormMessage>
+                        {form.formState.errors.bingoSeed?.message}
+                      </FormMessage>
+                    </FormItem>
+                  )}
+                />
+                <div className="flex w-full justify-center">
+                  <Button type="submit" className="w-full">Submit</Button>
+                </div>
+              </form>
             </Form>
           ) : (
             <div className="flex flex-col gap-4">
