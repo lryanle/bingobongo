@@ -54,7 +54,9 @@ export default function Home() {
 	return (
 		<main>
       <div>
-				<CreateBingo partyleader={"lryanle"} />
+				<div className="w-full h-full flex justify-center items-center m-4">
+					<CreateBingo partyleader={"lryanle"} />
+				</div>
         {/* <BingoCard mode={BingoCardArgs.mode } modeName={BingoCardArgs.modeName} lobbyName={BingoCardArgs.lobbyName} size={5} bingoData={BingoCardArgs.bingoData as BingoCardProps["bingoData"]} /> */}
         {/* <button onClick={createRoom}>Create room</button>
         <div className='flex gap-2'>
