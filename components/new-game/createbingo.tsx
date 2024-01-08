@@ -93,7 +93,7 @@ const formSchema = z.object({
     .max(8, "At most 8 teams allowed"),
   bingoPreset: z.string(),
   gameMode: z.string(),
-  boardSize: z.union([z.literal("3x3"), z.literal("5x5"), z.literal("7x7")]),
+  boardSize: z.custom<number[]>((val) => { return Array.isArray(val) && val.length === 1 && (val[0] === 0 || val[0] === 50 || val[0] === 100); }, { message: "Invalid board size. Allowed sizes are [0], [50], [100]", }),
   importBingoData: z
     .string()
     .regex(
@@ -110,36 +110,13 @@ const formSchema = z.object({
 
 export interface CreateBingoProps {
   partyleader: string;
-  // modeName: string;
-  // lobbyName: string;
-  // mode: "default" | "battleship",
-  // size: number,
-  // bingoData: [{
-  //   title?: string,
-  //   slotItems?: [{color: string, number: number}],
-  //   favorite?: boolean,
-  //   locked?: boolean,
-  //   disabled?: boolean,
-  // }],
-  // battleshipData?: [{position: [x: number, y: number], number: number}]
 }
 
-function getDefaults<Schema extends z.AnyZodObject>(schema: Schema) {
-  return Object.fromEntries(
-    Object.entries(schema.shape).map(([key, value]) => {
-      if (value instanceof z.ZodDefault)
-        return [key, value._def.defaultValue()];
-      return [key, undefined];
-    }),
-  );
-}
-
-//Need: lobby owner's username,
 export default function CreateBingo({ partyleader }: CreateBingoProps) {
   const [mounted, setMounted] = useState(false);
 
   const [roomName, setRoomName] = useState(`${partyleader}'s Room`);
-  const [bingoSeed, setBingoSeed] = useState("");
+  const [bingoSeed, setBingoSeed] = useState<string>(crypto.randomBytes(16).toString("hex"));
   const [preset, setPreset] = useState("");
   const [teams, setTeams] = useState([
     { name: "Team 1", color: "#b91c1c" },
@@ -152,21 +129,17 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
     resolver: zodResolver(formSchema),
     defaultValues: {
       roomName: roomName,
+      roomPassword: "",
       bingoSeed: bingoSeed,
       teams: teams,
       bingoPreset: "default",
-      gameMode: "default",
-      boardSize: "5x5",
+      gameMode: "",
+      boardSize: 50,
     },
   });
 
-
   useEffect(() => {
     setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    setBingoSeed(crypto.randomBytes(20).toString("hex"));
   }, []);
 
   useEffect(() => {
@@ -251,6 +224,7 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                         <FormControl>
                           <Input
                             type="password"
+                            placeholder="Password"
                             {...field}
                           />
                         </FormControl>
@@ -269,7 +243,7 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                       <div className="flex flex-row justify-center items-center">
                         <FormLabel className="whitespace-nowrap w-48">Bingo Seed</FormLabel>
                         <FormControl>
-                          <Input placeholder={bingoSeed} {...field} />
+                          <Input placeholder="Bingo Seed" {...field} />
                         </FormControl>
                       </div>
                       <FormMessage>
@@ -288,7 +262,7 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                         <FormControl>
                           <div className="flex flex-row w-[calc(100%-7.5rem)] md:w-[25.25rem] gap-2 ">
                             <ScrollArea className="w-96 whitespace-nowrap rounded-md border">
-                              <div className="flex flex-row gap-3 overflow-x-scroll p-2 shadow-inner">
+                              <div className="flex flex-row gap-3 p-2 shadow-inner">
                                 {teams.map(({ name, color }, i) => (
                                   <div
                                     key={`team-${i}`}
@@ -537,7 +511,7 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                     <FormItem className="w-full md:auto flex flex-row justify-between items-center">
                       <FormLabel className="whitespace-nowrap w-48">Bingo Mode</FormLabel>
                       <FormControl className="w-full">
-                        <Select>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select a Game Mode" />
                           </SelectTrigger>
@@ -567,9 +541,10 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                       <FormControl>
                         <div className="flex flex-col justify-center items-center w-full gap-2">
                           <Slider
-                            defaultValue={[50]}
                             max={100}
                             step={50}
+                            onValueChange={field.onChange}
+                            defaultValue={[field.value]}
                           />
                           <div className="flex flex-row justify-between items-center w-full">
                             <span>3x3</span>
@@ -596,7 +571,7 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                             <div className="w-full flex flex-row justify-between items-center gap-2">
                               <Button type="button" variant="outline" className="w-2/5">Import Bingo Data</Button>
                               <ScrollArea className="w-3/5 whitespace-nowrap rounded-md border">
-                                <div className="flex flex-row gap-3 overflow-x-scroll p-2 shadow-inner">
+                                <div className="flex flex-row gap-3 p-2 shadow-inner">
                                   No data parsed.
                                   {/* {tags.map((tag) => (
                                     <>
@@ -632,14 +607,14 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                                   </CardHeader>
                                   <CardContent className="space-y-2">
                                     <div className="space-y-1">
-                                      <Label htmlFor="name">Delimeter</Label>
-                                      <CardDescription>{`Supports Regex. Default method is csv (","). `}</CardDescription>
-                                      <Input id="delimeter" defaultValue="," />
+                                      <Label htmlFor="username">Import Data</Label>
+                                      <CardDescription>Please make sure to wrap the input text in double quotes <code className="bg-muted line-sp rounded p-0.5">&quot;</code>.</CardDescription>
+                                      <Textarea id="importText" placeholder='"Item 1", "Item 2", "Item 3", ...' />
                                     </div>
                                     <div className="space-y-1">
-                                      <Label htmlFor="username">Import Data</Label>
-                                      <CardDescription>{`Please make sure to wrap the input text in double quotes (").`}</CardDescription>
-                                      <Textarea id="importText" placeholder='"Item 1", "Item 2", "Item 3", ...' />
+                                      <Label htmlFor="name">Delimeter</Label>
+                                      <CardDescription>Supports Regex. Default method is csv {"("}<code className="bg-muted line-sp rounded p-0.5">,</code>{")"}.</CardDescription>
+                                      <Input id="delimeter" defaultValue="," />
                                     </div>
                                   </CardContent>
                                 </Card>
