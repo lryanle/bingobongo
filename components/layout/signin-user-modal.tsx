@@ -1,6 +1,6 @@
 "use client";
 
-import Popover from "@/components/ui/popover";
+import { Popover } from "@/components/ui/popover";
 import { LayoutDashboard, LogOut, MoonIcon, SunIcon } from "lucide-react";
 import { Session } from "next-auth";
 import { signOut } from "next-auth/react";
