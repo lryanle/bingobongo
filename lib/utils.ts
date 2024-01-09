@@ -45,3 +45,17 @@ export const hexToRgb = (hex: string) => {
 
   return `${parseInt(hex.slice(0, 2), 16)},${parseInt(hex.slice(2, 4), 16)},${parseInt(hex.slice(4, 6), 16)}`;
 }
+
+type SanitizeInput = string;
+export const sanitize = <T extends SanitizeInput>(input: T): T extends SanitizeInput ? string : never => {
+  const map: { [key: string]: string } = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#x27;',
+    "/": '&#x2F;',
+  };
+  const reg = /[&<>"'/]/ig;
+  return (input as SanitizeInput).replace(reg, (match) => (map[match])) as any;
+}

@@ -16,9 +16,9 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Icons } from "@/components/icons";
-import { getTextColor, modifyColor } from "@/lib/utils";
+import { getTextColor, modifyColor, sanitize } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { HexColorPicker, HexColorInput } from "react-colorful";
 import {
   Dialog,
@@ -46,6 +46,8 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 
 const teamNameSchema = z
   .string()
@@ -95,10 +97,11 @@ const formSchema = z.object({
   gameMode: z.string(),
   boardSize: z.custom<number[]>((val) => { return Array.isArray(val) && val.length === 1 && (val[0] === 0 || val[0] === 50 || val[0] === 100); }, { message: "Invalid board size. Allowed sizes are [0], [50], [100]", }),
   importBingoData: z
-    .string()
-    .regex(
-      /^[A-Za-z0-9\_\+\-\=\!\@\#\$\%\^\&\*\(\)\[\]\{\}\\\|\;\'\:\"\,\.\<\>\/\?\`\~\s]*$/,
-    )
+    .array(z
+      .string()
+      .regex(
+        /^[A-Za-z0-9\_\+\-\=\!\@\#\$\%\^\&\*\(\)\[\]\{\}\\\|\;\'\:\"\,\.\<\>\/\?\`\~\s]*$/,
+      ))
     .optional(),
   delimiter: z
     .string()
@@ -120,10 +123,12 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
   const [preset, setPreset] = useState("");
   const [teams, setTeams] = useState([
     { name: "Team 1", color: "#b91c1c" },
-    { name: "Team 2", color: "#eab308" },
-    { name: "Team 3", color: "#16a34a" },
-    { name: "Team 4", color: "#1d4ed8" },
+    { name: "Team 2", color: "#1d4ed8" },
   ]);
+  const [delimiter, setDelimiter] = useState(",");
+  const [importText, setImportText] = useState("");
+  const [parsedData, setParsedData] = useState<string[]>([]);
+  const [importTab, setImportTab] = useState("inputData");
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -134,7 +139,8 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
       teams: teams,
       bingoPreset: "default",
       gameMode: "",
-      boardSize: 50,
+      boardSize: [50],
+      importBingoData: parsedData,
     },
   });
 
@@ -145,6 +151,33 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
   useEffect(() => {
     form.setValue("teams", teams);
   }, [teams, form]);
+
+  const parseData = useCallback(() => {
+    try {
+      const pattern = `(${sanitize(delimiter)})(?=(?:[^\"\']*[\"\'][^\"\']*[\"\'])*[^\"\']*$)`;
+      const regex = new RegExp(pattern, 'g');
+  
+      const data = importText.split(regex).reduce((acc: string[], item, index, array) => {
+        // Check if this item is inside a quotation
+        if (index % 2 === 0) {
+          // Remove all types of quotation marks and trim
+          acc.push(item.replace(/[\"\'\`]+/g, "").trim());
+        }
+        return acc;
+      }, []);
+  
+      setParsedData(data.filter(str => str !== ""));
+      setImportTab("viewData");
+  
+      // Update the form's state with the parsed data
+      form.setValue("importBingoData", data.filter(str => str !== ""));
+    } catch (e) {
+      console.error("Error parsing data:", e);
+      setParsedData([]);
+      form.setValue("importBingoData", []);
+    }
+  }, [delimiter, importText, form]);  
+
 
   const handleAddTeam = () => {
     const newTeam = {
@@ -262,7 +295,7 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                         <FormControl>
                           <div className="flex flex-row w-[calc(100%-7.5rem)] md:w-[25.25rem] gap-2 ">
                             <ScrollArea className="w-96 whitespace-nowrap rounded-md border">
-                              <div className="flex flex-row gap-3 p-2 shadow-inner">
+                              <div className="flex flex-row gap-3 p-2 shadow-inner pr-6">
                                 {teams.map(({ name, color }, i) => (
                                   <div
                                     key={`team-${i}`}
@@ -544,7 +577,7 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                             max={100}
                             step={50}
                             onValueChange={field.onChange}
-                            defaultValue={[field.value]}
+                            defaultValue={field.value}
                           />
                           <div className="flex flex-row justify-between items-center w-full">
                             <span>3x3</span>
@@ -568,21 +601,22 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                       <FormControl>
                         <Dialog>
                           <DialogTrigger asChild>
-                            <div className="w-full flex flex-row justify-between items-center gap-2">
-                              <Button type="button" variant="outline" className="w-2/5">Import Bingo Data</Button>
-                              <ScrollArea className="w-3/5 whitespace-nowrap rounded-md border">
-                                <div className="flex flex-row gap-3 p-2 shadow-inner">
-                                  No data parsed.
-                                  {/* {tags.map((tag) => (
-                                    <>
-                                      <div key={tag} className="text-sm">
-                                        {tag}
+                            <div className="w-full md:w-[30rem] flex flex-row justify-end items-center gap-3 px-2">
+                              <Button type="button" variant="outline" className="w-full md:w-1/3">Import Bingo Data</Button>
+                              <div className="hidden md:w-[15.4rem] md:flex whitespace-nowrap rounded-md border">
+                                <div className="flex flex-row gap-3 p-2 shadow-inner overflow-x-scroll py-3">
+                                  {parsedData.length > 0 ? (
+                                    parsedData.map((dataItem, i) => (
+                                      <div key={i} className="w-full text-sm flex justify-start items-center gap-2 px-2 py-1 bg-secondary text-secondary-foreground rounded-2xl text-wrap">
+                                        <Badge className=" bg-primary text-primary-foreground px-1.5 py-0.5 h-5">{i+1}</Badge> 
+                                        <span className="text-wrap break-normal ">{dataItem}</span>
                                       </div>
-                                      <Separator className="my-2" />
-                                    </>
-                                  ))} */}
+                                    ))
+                                  ) : (
+                                    <div>No data parsed.</div>
+                                  )}
                                 </div>
-                              </ScrollArea>
+                              </div>
                             </div>
                           </DialogTrigger>
                           <DialogContent className="sm:max-w-[425px] md:max-w-[28rem] flex flex-col items-center">
@@ -592,7 +626,7 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                                 Upload, edit, and view bingo data here. 
                               </DialogDescription>
                             </DialogHeader>
-                            <Tabs defaultValue="inputData" className="w-[350px]">
+                            <Tabs value={importTab} onValueChange={(value) => {setImportTab(value)}} className="w-[350px]">
                               <TabsList className="grid w-full grid-cols-2">
                                 <TabsTrigger value="inputData">Input Data</TabsTrigger>
                                 <TabsTrigger value="viewData">View Data</TabsTrigger>
@@ -601,21 +635,24 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                                 <Card>
                                   <CardHeader>
                                     <CardTitle>Input Data</CardTitle>
-                                    <CardDescription>
-                                      Import data here in any delimited format. Parsed data can be viewed in the View Data tab.
-                                    </CardDescription>
                                   </CardHeader>
                                   <CardContent className="space-y-2">
                                     <div className="space-y-1">
-                                      <Label htmlFor="username">Import Data</Label>
-                                      <CardDescription>Please make sure to wrap the input text in double quotes <code className="bg-muted line-sp rounded p-0.5">&quot;</code>.</CardDescription>
-                                      <Textarea id="importText" placeholder='"Item 1", "Item 2", "Item 3", ...' />
+                                      <Label htmlFor="name">Delimeter</Label>
+                                      <CardDescription>Supports Regex. Default method is csv {"("}<code className="bg-muted line-sp rounded p-0.5">,</code>{")"}. Advanced help can be found <Link href="https://regexr.com" target="_blank" className="text-accent-foreground">here</Link>.</CardDescription>
+                                      <Input id="delimeter" value={delimiter} onChange={(e) => setDelimiter(e.target.value)} />
                                     </div>
                                     <div className="space-y-1">
-                                      <Label htmlFor="name">Delimeter</Label>
-                                      <CardDescription>Supports Regex. Default method is csv {"("}<code className="bg-muted line-sp rounded p-0.5">,</code>{")"}.</CardDescription>
-                                      <Input id="delimeter" defaultValue="," />
+                                      <Label htmlFor="username">Import Data</Label>
+                                      <CardDescription>Please wrap all items in double quotes <code className="bg-muted line-sp rounded p-0.5">&quot;</code>.</CardDescription>
+                                      <Textarea 
+                                        id="importText" 
+                                        value={importText}
+                                        placeholder='"Item 1", "Item 2", "Item 3", ...'
+                                        onChange={(e) => setImportText(e.target.value)}
+                                      />
                                     </div>
+                                    <Button onClick={parseData}>Parse Data</Button>
                                   </CardContent>
                                 </Card>
                               </TabsContent>
@@ -628,17 +665,18 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                                     </CardDescription>
                                   </CardHeader>
                                   <CardContent className="space-y-2">
-                                    <ScrollArea className="max-h-[17rem] w-full rounded-md border">
-                                      <div className="p-4">
-                                        No data parsed.
-                                        {/* {tags.map((tag) => (
-                                          <>
-                                            <div key={tag} className="text-sm">
-                                              {tag}
+                                    <ScrollArea className="max-h-[17rem] w-full rounded-md border overflow-auto">
+                                      <div className="p-4 space-y-1">
+                                        {parsedData.length > 0 ? (
+                                          parsedData.map((dataItem, i) => (
+                                            <div key={i} className="w-full text-sm flex justify-start items-center gap-2 px-2 py-1 bg-secondary text-secondary-foreground rounded-2xl text-wrap overflow-auto">
+                                              <Badge className=" bg-primary text-primary-foreground px-1.5 py-0.5 h-5">{i+1}</Badge> 
+                                              <span className="text-wrap break-normal ">{dataItem}</span>
                                             </div>
-                                            <Separator className="my-2" />
-                                          </>
-                                        ))} */}
+                                          ))
+                                        ) : (
+                                          <div>No data parsed.</div>
+                                        )}
                                       </div>
                                     </ScrollArea>
                                   </CardContent>

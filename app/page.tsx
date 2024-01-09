@@ -54,7 +54,7 @@ export default function Home() {
 	return (
 		<main>
       <div>
-				<div className="w-full h-full flex justify-center items-center m-4">
+				<div className="w-full h-full flex justify-center items-center my-2">
 					<CreateBingo partyleader={"lryanle"} />
 				</div>
         {/* <BingoCard mode={BingoCardArgs.mode } modeName={BingoCardArgs.modeName} lobbyName={BingoCardArgs.lobbyName} size={5} bingoData={BingoCardArgs.bingoData as BingoCardProps["bingoData"]} /> */}
