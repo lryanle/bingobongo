@@ -550,7 +550,7 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                     <FormItem className="w-full md:auto flex flex-row justify-between items-center">
                       <FormLabel className="whitespace-nowrap w-48">Bingo Mode</FormLabel>
                       <FormControl className="w-full">
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} defaultValue={"classic-bingo"}>
                           <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select a Game Mode" />
                           </SelectTrigger>

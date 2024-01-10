@@ -3,47 +3,100 @@ export const bingoConfig = {
 		{
 			name: "Classic Bingo",
 			description:
-				"Achieve victory by marking off a full line on your bingo card. Lines can be horizontal, vertical, or diagonal.",
-		},
-		{
-			name: "Double Bingo",
-			description:
-				"Twice the challenge and fun! Players must complete two separate lines anywhere on their card. Lines can intersect but must be distinct to count.",
-		},
-		{
-			name: "Triple Bingo",
-			description:
-				"Elevate your game by completing three distinct lines. Any combination of horizontal, vertical, or diagonal lines counts.",
+				"Achieve victory by marking off a full line on your bingo card. Lines can be horizontal, vertical, or diagonal. The amount of bingos can be customized.",
+			flags: {
+				count: true,
+				lockout: true,
+				column: false,
+				row: false,
+				pattern: false,
+			},
+			win: "bingo",
+			enabled: true,
 		},
 		{
 			name: "Invasion Bingo",
 			description:
-				"Begin your game from the opposing outer edges and strategically work your way towards the center. Opponents can block your path by claiming opposing positions. You must complete your first and second rows to progress, adhering to lockout rules that prevent claiming squares above your furthest row.",
+				"Begin your game from the opposing outer edges and strategically work your way towards the center. Opponents can block your path by claiming opposing positions. While moving through columns or rows, the amount of goals you can score have to be lessthan or equal to the previous column/row. Win by scoring the majority of goals",
+			flags: {
+				column: true,
+				row: true,
+				lockout: true,
+				count: false,
+				pattern: false,
+			},
+			win: "majority",
+			enabled: false,
 		},
 		{
-			name: "Four-layer Bingo",
+			name: "Turfwar Bingo",
 			description:
-				"Select your starting point at any edge and navigate to the 4th row or column. This mode requires strategic advancement and planning, with victory achieved upon completing the 4th line.",
+				"Capture your starting point at any edge and navigate to the opponent's row or column. The row/column to reach can be configured.",
+			flags: {
+				column: true,
+				row: true,
+				lockout: false,
+				count: false,
+				pattern: false,
+			},
+			win: "rowcolumn",
+			enabled: false,
 		},
 		{
 			name: "Battleship Bingo",
 			description:
 				"Inspired by the classic game of Battleship, place hidden ships within your grid. Players can claim goals that 'hit' opponents' ships or miss them.",
+			flags: {
+				pattern: true,
+				column: false,
+				row: false,
+				lockout: false,
+				count: false,
+			},
+			win: "pattern",
+			enabled: false,
 		},
 		{
 			name: "Lockout Bingo",
 			description:
 				"It's a race to claim over 50% of the goals on the board, but with a twist: once a player claims a goal, it's locked out for the opponent. This mode requires speed and strategy to claim the most advantageous goals first.",
+			flags: {
+				lockout: true,
+				count: true,
+				pattern: false,
+				column: false,
+				row: false,
+			},
+			win: "majority",
+			enabled: false,
 		},
 		{
 			name: "Blackout Bingo",
 			description:
 				"The ultimate endurance test. Players aim to complete every single goal on the bingo board.",
+			flags: {
+				lockout: false,
+				count: false,
+				pattern: false,
+				column: false,
+				row: false,
+			},
+			win: "blackout",
+			enabled: false,
 		},
 		{
 			name: "Draft Bingo",
 			description:
 				"Players take turns alternating and strategically selecting their objectives in a snake-style adjacent-goals only draft. The last goal picked serves as a tiebreaker.",
+			flags: {
+				lockout: false,
+				count: false,
+				pattern: false,
+				column: false,
+				row: false,
+			},
+			win: "blackout",
+			enabled: false,
 		},
 		{
 			name: "Reverse Draft Bingo",
