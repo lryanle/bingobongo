@@ -48,6 +48,7 @@ model User {
   accounts      Account[]
   sessions      Session[]
   rooms         Room[]
+  created       DateTime  @default(now())
 
   @@map("users")
 }
@@ -71,8 +72,9 @@ model Room {
   gameMode      String
   boardSize     Int
   teams         Json     // For complex structures like arrays of objects
-  ownerId       String   @map("owner_id") @db.ObjectId
+  ownerId       String   @unique @map("owner_id") @db.ObjectId
   owner         User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  lastUpdated   DateTime @map("last_updated")
 
   @@map("rooms")
 }
