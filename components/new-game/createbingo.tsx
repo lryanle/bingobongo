@@ -296,8 +296,8 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                   name="teams"
                   render={({ field }) => (
                     <FormItem className="w-full md:auto">
-                      <div className="flex flex-row justify-center items-start">
-                        <FormLabel className="whitespace-nowrap w-68 mt-3">Teams</FormLabel>
+                      <div className="flex flex-row justify-center items-center">
+                        <FormLabel className="whitespace-nowrap w-68">Teams</FormLabel>
                         <FormControl>
                           <div className="flex flex-row w-[calc(100%-7.5rem)] md:w-[25.25rem] gap-2 ">
                             <ScrollArea className="w-96 whitespace-nowrap rounded-md border">
@@ -547,11 +547,11 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                   control={form.control}
                   name="gameMode"
                   render={({ field }) => (
-                    <FormItem className="w-full md:auto flex flex-row justify-between items-center">
+                    <FormItem className="w-full md:auto flex flex-row justify-between items-center mt-0">
                       <FormLabel className="whitespace-nowrap w-48">Bingo Mode</FormLabel>
                       <FormControl className="w-full">
                         <Select onValueChange={field.onChange} defaultValue={"classic-bingo"}>
-                          <SelectTrigger className="w-full">
+                          <SelectTrigger className="w-full" style={{marginTop: 0}}>
                             <SelectValue placeholder="Select a Game Mode" />
                           </SelectTrigger>
                           <SelectContent>
@@ -614,7 +614,7 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                       <FormControl>
                         <Dialog onOpenChange={() => {importTab.includes("inputTab") ? "" : setImportTab("inputData")}}>
                           <DialogTrigger asChild>
-                            <div className="w-full md:w-[30rem] flex flex-row justify-end items-center gap-3 px-2">
+                            <div className="w-full md:w-[30rem] flex flex-row justify-end items-center gap-3 px-2" style={{marginTop: 0}}>
                               <Button type="button" variant="outline" className="w-full md:w-1/3">Import Bingo Data</Button>
                               <div className="hidden md:w-[15.4rem] md:flex whitespace-nowrap rounded-md border overflow-x-scroll">
                                 <div className="flex flex-row gap-3 p-2 shadow-inner py-3">
@@ -717,29 +717,47 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
               </form>
             </Form>
           ) : (
-            <div className="flex flex-col gap-4">
-              <div className="space-y-3 mt-0.5">
-                <Skeleton className="h-[17px] w-28" />
-                <Skeleton className="h-10 w-full" />
+            <div className="w-full flex flex-col gap-4">
+              <div className="w-full flex flex-row justify-between items-center">
+                <Skeleton className="h-4 w-44 mr-4 md:mr-0 md:w-20" />
+                <Skeleton className="h-10 w-full md:w-[25.2rem]" />
               </div>
-              <div className="space-y-3 mt-0.5">
-                <Skeleton className="h-[17px] w-28" />
-                <Skeleton className="h-10 w-full" />
+              <div className="w-full flex flex-row justify-between items-center md:space-x-8">
+                <Skeleton className="h-4 w-44 mr-4 md:mr-0 md:w-[6.75rem]" />
+                <Skeleton className="h-10 w-full md:w-[25.2rem]" />
               </div>
-              <div className="space-y-3 mt-0.5">
-                <Skeleton className="h-[17px] w-28" />
-                <Skeleton className="h-10 w-full" />
+              <div className="w-full flex flex-row justify-between items-center md:space-x-8">
+                <Skeleton className="h-4 w-44 mr-4 md:mr-0 md:w-[4.75rem]" />
+                <Skeleton className="h-10 w-full md:w-[25.2rem]" />
               </div>
-              <div className="space-y-3 mt-0.5 mb-2">
-                <Skeleton className="h-[17px] w-28" />
-                <div className="flex flex-row gap-2">
-                  <Skeleton className="h-10 w-[86px]" />
-                  <Skeleton className="h-10 w-[86px]" />
-                  <Skeleton className="h-10 w-[86px]" />
-                  <Skeleton className="h-10 w-[86px]" />
-                  <Skeleton className="h-10 w-[107px]" />
+              <div className="w-full flex flex-row justify-between items-center md:space-x-8">
+                <Skeleton className="h-4 w-44 mr-4 md:mr-0 md:w-[2.75rem]" />
+                <div className="w-full md:w-auto flex flex-row justify-center items-center gap-2">
+                  <Skeleton className="h-[3.6rem] w-full md:w-72" />
+                  <Skeleton className="h-[2.4rem] w-10 md:w-[6.738rem]" />
                 </div>
               </div>
+              <div className="w-full flex flex-row justify-between items-center md:space-x-8">
+                <Skeleton className="h-4 w-44 mr-4 md:mr-0 md:w-20" />
+                <Skeleton className="h-10 w-full md:w-[25.2rem]" />
+              </div>
+
+              <div className="w-full flex flex-row justify-between items-center md:space-x-8">
+                <div className="w-44 mr-4 md:mr-0 md:w-auto flex flex-col justify-center items-start gap-0.5 h-12">
+                  <Skeleton className="h-4 w-full mr-4 md:mr-0 md:w-[5.3rem]" />
+                  <Skeleton className="h-[.9063rem] w-full mr-4 md:mr-0 md:w-[5.656rem]" />
+                </div>
+                <Skeleton className="h-10 w-full md:w-[25.2rem]" />
+              </div>
+
+              <div className="w-full flex flex-row justify-between items-center md:space-x-8">
+                <Skeleton className="h-4 w-44 mr-4 md:mr-0 md:w-[4.6rem]" />
+                <div className="w-full md:w-auto flex flex-row justify-center items-center gap-3 md:px-2">
+                  <Skeleton className="h-10 w-full md:w-[8.611rem]" />
+                  <Skeleton className="h-[3.125rem] hidden md:block w-[15.4rem]" />
+                </div>
+              </div>
+              <Skeleton className="w-full h-10" />
             </div>
           )}
         </div>
