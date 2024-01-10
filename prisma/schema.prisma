@@ -47,6 +47,7 @@ model User {
   image         String?
   accounts      Account[]
   sessions      Session[]
+  rooms         Room[]
 
   @@map("users")
 }
@@ -59,6 +60,23 @@ model VerificationToken {
   @@unique([identifier, token])
   @@map("verificationtokens")
 }
+
+// ====================================================
+
+model Room {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  roomName      String
+  roomPassword  String?
+  bingoSeed     String
+  gameMode      String
+  boardSize     Int
+  teams         Json     // For complex structures like arrays of objects
+  ownerId       String   @map("owner_id") @db.ObjectId
+  owner         User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@map("rooms")
+}
+
 
 // ====================================================
 
