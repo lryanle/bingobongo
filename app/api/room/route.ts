@@ -75,7 +75,7 @@ export async function POST(request: Request) {
 
             return new Response("Successfully created room", { status: 200 });
           } catch (e) {
-            return new Response("Internal Server Error: Error upserting room"+e, { status: 500 });
+            return new Response("Internal Server Error: Error upserting room", { status: 500 });
           }
         } catch (e) {
           return new Response("Bad Request: Invalid room data", { status: 400 });

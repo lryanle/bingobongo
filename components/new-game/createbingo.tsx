@@ -630,7 +630,7 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                                 <div className="flex flex-row gap-3 p-2 shadow-inner py-3">
                                   {parsedData.length > 0 ? (
                                     parsedData.map((dataItem, i) => (
-                                      <div key={i} className="w-full text-sm flex justify-start items-center gap-2 px-2 py-1 bg-secondary text-secondary-foreground rounded-2xl text-wrap">
+                                      <div key={i} className="text-sm flex justify-start items-center gap-2 px-2 py-1 bg-secondary text-secondary-foreground rounded-2xl text-wrap">
                                         <Badge className=" bg-primary text-primary-foreground px-1.5 py-0.5 h-5">{i+1}</Badge> 
                                         <span className="text-nowrap break-normal ">{dataItem}</span>
                                       </div>
