@@ -10,9 +10,11 @@ export const bingoConfig = {
 				column: false,
 				row: false,
 				pattern: false,
+				adjacent: false,
 			},
 			win: "bingo",
 			enabled: true,
+			modes: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
 		},
 		{
 			name: "Invasion Bingo",
@@ -22,6 +24,7 @@ export const bingoConfig = {
 				column: true,
 				row: true,
 				lockout: true,
+				adjacent: true,
 				count: false,
 				pattern: false,
 			},
@@ -35,6 +38,7 @@ export const bingoConfig = {
 			flags: {
 				column: true,
 				row: true,
+				adjacent: true,
 				lockout: false,
 				count: false,
 				pattern: false,
@@ -52,6 +56,7 @@ export const bingoConfig = {
 				row: false,
 				lockout: false,
 				count: false,
+				adjacent: false,
 			},
 			win: "pattern",
 			enabled: false,
@@ -66,6 +71,7 @@ export const bingoConfig = {
 				pattern: false,
 				column: false,
 				row: false,
+				adjacent: false,
 			},
 			win: "majority",
 			enabled: false,
@@ -80,6 +86,7 @@ export const bingoConfig = {
 				pattern: false,
 				column: false,
 				row: false,
+				adjacent: false,
 			},
 			win: "blackout",
 			enabled: false,
@@ -89,94 +96,200 @@ export const bingoConfig = {
 			description:
 				"Players take turns alternating and strategically selecting their objectives in a snake-style adjacent-goals only draft. The last goal picked serves as a tiebreaker.",
 			flags: {
-				lockout: false,
+				lockout: true,
+				pattern: true,
 				count: false,
-				pattern: false,
 				column: false,
 				row: false,
+				adjacent: false,
 			},
-			win: "blackout",
+			win: "pattern",
 			enabled: false,
-		},
-		{
-			name: "Reverse Draft Bingo",
-			description:
-				"Turn the tables by selecting goals for your opponent in a snake draft.",
+			modes: ["normal", "reverse", "coinflip"]
 		},
 		{
 			name: "Checkers Bingo",
 			description:
 				"Players alternate in claiming goals, mimicking the movement of checkers. The central square acts as a tiebreaker.",
+			flags: {
+				pattern: true,
+				lockout: true,
+				count: false,
+				column: false,
+				row: false,
+				adjacent: false,
+			},
+			win: "majority",
+			enabled: false,
 		},
 		{
-			name: "Dorito Corner Bingo",
+			name: "Pizza Bingo",
 			description:
-				"Choose an opposing corner to start and complete all goals to the middle diagonal of the board. The game is won when a player completes their diagonal triangle (dorito) and then claims the majority of the final diagonal's goals.",
+				"Choose an opposing corner to start and complete all goals to the middle diagonal of the board. The game is won when a player completes their diagonal triangle (pizza) and then claims the majority of the final diagonal's goals.",
+			flags: {
+				pattern: true,
+				lockout: false,
+				count: false,
+				column: false,
+				row: false,
+				adjacent: false,
+			},
+			win: "pattern",
+			enabled: false,
 		},
 		{
-			name: "Dorito Dash Bingo",
+			name: "Diagonal Dash Bingo",
 			description:
-				"Focus on conquering the central diagonal stripe starting from your corner.This is similar to Dorito Corner bingo with the exception that players must each complete the final diagonal after completing their side of the dorito to win.",
+				"Focus on conquering the central diagonal stripe starting from your corner. This is similar to Pizza Bingo with the exception that players must each complete the final diagonal after completing their side of the pizza to win.",
+			flags: {
+				pattern: true,
+				lockout: true,
+				adjacent: true,
+				count: false,
+				column: false,
+				row: false,
+			},
+			win: "pattern",
+			enabled: false,
 		},
 		{
-			name: "Coin Flip Bingo",
+			name: "Five Flag Bingo",
 			description:
-				"After drafting objectives, a coin flip determines which draft each player will pursue.",
-		},
-		{
-			name: "Four Corners Bingo",
-			description:
-				"A quick and strategic game mode where players aim to be the first to mark off all four corners on their bingo card. All players start in the center and must make their way to all four corners by claiming adjacent goals.",
+				"A quick and strategic game mode where players aim to mark off the majority of the five flags on their bingo card. All players start in a corner and must capture the majority of the five flags by moving and claiming adjacent goals.",
+			flags: {
+				pattern: true,
+				lockout: true,
+				adjacent: true,
+				count: false,
+				column: false,
+				row: false,
+			},
+			win: "pattern",
+			enabled: false,
 		},
 		{
 			name: "Perimeters Bingo",
 			description:
-				"Start by filling the outer edge of your bingo card. Once the perimeter is complete, shift your focus to the inner perimeters. The first to complete the outside and then all inside squares wins.",
-		},
-		{
-			name: "Picture Frame Bingo",
-			description:
-				"Players aim to complete all the squares along the edge of their bingo card, forming a 'picture frame'.",
-		},
-		{
-			name: "Layer Cake Bingo",
-			description:
-				"This mode divides the bingo card into three horizontal sections or 'layers'. Players must complete the top, middle, and bottom layers in order to win.",
+				"Start by filling the outer edge of your bingo card. Once the perimeter is complete, shift your focus to the inner perimeters. Once all players complete outside, the first team to score the majority of the goals using the inside squares wins.",
+			flags: {
+				pattern: true,
+				lockout: true,
+				adjacent: false,
+				count: false,
+				column: false,
+				row: false,
+			},
+			win: "majority",
+			enabled: false,
 		},
 		{
 			name: "Tilted Bingo",
 			description:
 				"Every time a player marks a square, they must also mark the square that is a 90-degree rotation of the claimed square. The goal is to complete a line or pattern as usual, but with the added complexity of the titled goals.",
-		},
-		{
-			name: "Pyramid Bingo",
-			description:
-				"Players aim to mark off numbers to form a pyramid shape, starting with one square at the top and expanding each row by one square. The first to complete the pyramid wins.",
+			flags: {
+				lockout: true,
+				count: true,
+				pattern: true,
+				adjacent: false,
+				column: false,
+				row: false,
+			},
+			win: "bingo",
+			enabled: false,
+			modes: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
 		},
 		{
 			name: "Pirate Bingo",
 			description:
 				"A dynamic mode where players select a random starting goal along the edge of the bingo grid and work towards the treasure spot goal that appears after the first player captures their starting bingo spot. Players can only move adjacent to captured bingo cells.",
+			flags: {
+				pattern: true,
+				adjacent: true,
+				lockout: false,
+				count: false,
+				column: false,
+				row: false,
+			},
+			win: "pattern",
+			enabled: false,
 		},
 		{
 			name: "Race Bingo",
 			description:
 				"A jackpot mode where the goal is to reach the randomized target amount of goals first.",
+			flags: {
+				count: true,
+				pattern: false,
+				adjacent: false,
+				lockout: false,
+				column: false,
+				row: false,
+			},
+			win: "count",
+			enabled: false,
 		},
 		{
 			name: "Mystery Bingo",
 			description:
 				"Before the game starts, a specific pattern or shape is kept secret. As the game progresses, players try to guess and complete the mystery pattern to win.",
+			flags: {
+				pattern: true,
+				count: false,
+				adjacent: false,
+				lockout: false,
+				column: false,
+				row: false,
+			},
+			win: "pattern",
+			enabled: false,
 		},
 		{
 			name: "Simon Says Bingo",
 			description:
-				"A version of bingo where aftering completing the first assigned bingo goal, the next goal is revealed by the game. Players can only claim the goal selected by the game.",
+				"A version of bingo where a certain amount of bingo goals are revealed. After completing a bingo goal, a new one is revealed by the game. Players can only claim the goals selected by the game. First team to get the majority of the goals wins.",
+			flags: {
+				lockout: true,
+				pattern: true,
+				count: false,
+				adjacent: false,
+				column: false,
+				row: false,
+			},
+			win: "majority",
+			enabled: false,
+			modes: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
 		},
 		{
 			name: "Exploding Bingo",
 			description:
 				"At random intervals, an 'explosion' number is called, clearing marked squares in its vicinity.",
+			flags: {
+				count: true,
+				pattern: false,
+				adjacent: false,
+				lockout: false,
+				column: false,
+				row: false,
+			},
+			win: "bingo",
+			enabled: false,
+			modes: ["easy", "medium", "hard", "unfair"],
+		},
+		{
+			name: "Ghostbusters Bingo",
+			description:
+				"Squares are randomly chosen to contain a ghost. Every non-ghost square captured will show a number indicating how many squares away the nearest ghost is. Game ends with a team eliminates the majority of the ghosts.",
+			flags: {
+				pattern: true,
+				lockout: true,
+				count: false,
+				adjacent: false,
+				column: false,
+				row: false,
+			},
+			win: "majority",
+			enabled: false,
+			modes: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
 		},
 	],
 };

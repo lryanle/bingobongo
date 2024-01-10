@@ -138,7 +138,7 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
       bingoSeed: bingoSeed,
       teams: teams,
       bingoPreset: "default",
-      gameMode: "",
+      gameMode: "classic-bingo",
       boardSize: [50],
       importBingoData: parsedData,
     },
@@ -549,25 +549,35 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                   render={({ field }) => (
                     <FormItem className="w-full md:auto flex flex-row justify-between items-center mt-0">
                       <FormLabel className="whitespace-nowrap w-48">Bingo Mode</FormLabel>
-                      <FormControl className="w-full">
-                        <Select onValueChange={field.onChange} defaultValue={"classic-bingo"}>
-                          <SelectTrigger className="w-full" style={{marginTop: 0}}>
-                            <SelectValue placeholder="Select a Game Mode" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectGroup>
-                              <SelectLabel>Bingo Game Modes</SelectLabel>
-                              <Separator />
-                              {bingoConfig.modes.map((preset, i) => {
-                                return (<SelectItem value={preset.name.toLowerCase().replaceAll(' ', '-')} key={i}>{preset.name}</SelectItem>)
-                              })}
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
-                      </FormControl>
-                      <FormMessage>
-                        {form.formState.errors.bingoSeed?.message}
-                      </FormMessage>
+                      <div className="w-full flex flex-col justify-center items-center">
+                        <FormControl className="w-full">
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <SelectTrigger className="w-full" style={{marginTop: 0}}>
+                              <SelectValue placeholder="Select a Game Mode" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectGroup>
+                                <SelectLabel>Bingo Game Modes</SelectLabel>
+                                <Separator />
+                                {bingoConfig.modes.map((preset, i) => {
+                                  return (<SelectItem value={preset.name.toLowerCase().replaceAll(' ', '-')} key={i} disabled={!preset.enabled}>{preset.name}</SelectItem>)
+                                })}
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                        <FormMessage className="text-muted-foreground mt-1">
+                          {field.value !== "" && (
+                            bingoConfig.modes.filter((preset) => preset.name.toLowerCase().replaceAll(' ', '-') === field.value)[0].description
+                          )}
+                        </FormMessage>
+                        <FormMessage>
+                          {form.formState.errors.bingoSeed?.message}
+                        </FormMessage>
+                      </div>
+
+
+                      
                     </FormItem>
                   )}
                 />
@@ -626,7 +636,7 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                                       </div>
                                     ))
                                   ) : (
-                                    <div>No data parsed.</div>
+                                    <div>No data imported</div>
                                   )}
                                 </div>
                               </div>
@@ -694,7 +704,7 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                                             </div>
                                           ))
                                         ) : (
-                                          <div>No data parsed.</div>
+                                          <div>No data imported</div>
                                         )}
                                       </div>
                                     </ScrollArea>
