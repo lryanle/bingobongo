@@ -59,3 +59,32 @@ export const sanitize = <T extends SanitizeInput>(input: T): T extends SanitizeI
   const reg = /[&<>"'/]/ig;
   return (input as SanitizeInput).replace(reg, (match) => (map[match])) as any;
 }
+
+export const isJson = (str: any) => {
+  if (typeof str !== 'string') return false;
+    try {
+        const result = JSON.parse(str);
+        const type = Object.prototype.toString.call(result);
+        return type === '[object Object]' 
+            || type === '[object Array]';
+    } catch (err) {
+        return false;
+    }
+}
+
+export const getAllValues = (obj: any) => {
+  let values: string[] = [];
+
+  function extractValues(item: any) {
+      if (Array.isArray(item)) {
+          item.forEach(subItem => extractValues(subItem));
+      } else if (typeof item === 'object' && item !== null) {
+          Object.values(item).forEach(subItem => extractValues(subItem));
+      } else {
+          values.push(item);
+      }
+  }
+
+  extractValues(obj);
+  return values;
+}

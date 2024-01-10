@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Icons } from "@/components/icons";
-import { getTextColor, modifyColor, sanitize } from "@/lib/utils";
+import { getAllValues, getTextColor, isJson, modifyColor, sanitize } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { useCallback, useEffect, useState } from "react";
 import { HexColorPicker, HexColorInput } from "react-colorful";
@@ -118,9 +118,9 @@ export interface CreateBingoProps {
 export default function CreateBingo({ partyleader }: CreateBingoProps) {
   const [mounted, setMounted] = useState(false);
 
-  const [roomName, setRoomName] = useState(`${partyleader}'s Room`);
-  const [bingoSeed, setBingoSeed] = useState<string>(crypto.randomBytes(16).toString("hex"));
-  const [preset, setPreset] = useState("");
+  const [roomName] = useState(`${partyleader}'s Room`);
+  const [bingoSeed] = useState<string>(crypto.randomBytes(16).toString("hex"));
+  // const [preset, setPreset] = useState(""); // to be used for games
   const [teams, setTeams] = useState([
     { name: "Team 1", color: "#b91c1c" },
     { name: "Team 2", color: "#1d4ed8" },
@@ -151,32 +151,38 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
   useEffect(() => {
     form.setValue("teams", teams);
   }, [teams, form]);
-
+  
   const parseData = useCallback(() => {
     try {
-      const pattern = `(${sanitize(delimiter)})(?=(?:[^\"\']*[\"\'][^\"\']*[\"\'])*[^\"\']*$)`;
+      if (isJson(importText) || delimiter.toLowerCase().includes("json")) {
+        const data = getAllValues(JSON.parse(importText))
+        setParsedData(data);
+        setImportTab("viewData");
+  
+        form.setValue("importBingoData", data);
+      } else {
+        const pattern = `(${sanitize(delimiter)})(?=(?:(?:[^"']|"(?:[^"\\\\]|\\\\.)*"|'(?:[^'\\\\]|\\\\.)*')*$))`;
       const regex = new RegExp(pattern, 'g');
   
-      const data = importText.split(regex).reduce((acc: string[], item, index, array) => {
-        // Check if this item is inside a quotation
-        if (index % 2 === 0) {
-          // Remove all types of quotation marks and trim
-          acc.push(item.replace(/[\"\'\`]+/g, "").trim());
-        }
+      const data = importText.split(regex).reduce((acc: string[], item) => {
+
+        acc.push(item.trim().replace(/^['"`](.*)['"`]$/, '$1'));
+        
         return acc;
       }, []);
   
-      setParsedData(data.filter(str => str !== ""));
+      setParsedData(data.filter(str => str !== "" && str !== " " && str.trim() !== delimiter.trim()));
       setImportTab("viewData");
   
-      // Update the form's state with the parsed data
-      form.setValue("importBingoData", data.filter(str => str !== ""));
+      form.setValue("importBingoData", data.filter(str => str !== "" && str !== " " && str.trim() !== delimiter.trim()));
+      }
     } catch (e) {
       console.error("Error parsing data:", e);
       setParsedData([]);
       form.setValue("importBingoData", []);
     }
-  }, [delimiter, importText, form]);  
+  }, [delimiter, importText, form]);
+  
 
 
   const handleAddTeam = () => {
@@ -221,11 +227,11 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
   };
 
   return (
-    <div className="inline-flex w-[calc(100%-1rem)] md:w-auto m-2 md:m-0 md:p-5 flex-col justify-center items-center gap-2 rounded-3xl bg-primary-foreground  shadow">
+    <div className="inline-flex w-[calc(100%-1rem)] md:w-auto m-2 md:m-0 md:p-5 flex-col justify-center items-center gap-2 rounded-3xl bg-primary-foreground shadow">
       <div className="flex bg-secondary m-4 md:m-0 py-4 flex-col items-center gap-3 self-stretch rounded-2xl bg-opacity-50 backdrop-blur-xl text-primary text-center font-semibold text-4xl shadow">
         New Bingo
       </div>
-      <div className="flex py-2 px-4 md:px-8 flex-col items-center gap-4 self-stretch">
+      <div className="flex md:py-2 px-4 md:px-8 flex-col items-center gap-4 pb-4 self-stretch">
         <div className="flex flex-col items-start gap-4 self-stretch md:w-[34rem]">
           {mounted ? (
             <Form {...form}>
@@ -521,10 +527,10 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                               <Button
                                 variant="secondary"
                                 type="button"
-                                className="flex shadow h-10 px-2.5 my-2 items-center gap-2 rounded-lg border-primary-foreground border"
+                                className="flex shadow h-10 px-3 md:px-2.5 my-2 items-center gap-2 rounded-lg border-primary-foreground border"
                                 onClick={handleAddTeam}
                               >
-                                Add Team
+                                <span className="hidden md:block">Add Team</span>
                                 <Icons.plus />
                               </Button>
                             )}
@@ -570,7 +576,13 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                   name="boardSize"
                   render={({ field }) => (
                     <FormItem className="w-full md:auto flex flex-row justify-between items-center">
-                      <FormLabel className="whitespace-nowrap w-48">Bingo Preset</FormLabel>
+                      <FormLabel className="whitespace-nowrap w-48">
+                        {"Bingo Preset"}
+                        <br />
+                        <span className="text-xs text-secondary-foreground opacity-50">
+                          {"(temp disabled)"}
+                        </span>
+                      </FormLabel>
                       <FormControl>
                         <div className="flex flex-col justify-center items-center w-full gap-2">
                           <Slider
@@ -578,11 +590,12 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                             step={50}
                             onValueChange={field.onChange}
                             defaultValue={field.value}
+                            disabled
                           />
                           <div className="flex flex-row justify-between items-center w-full">
-                            <span>3x3</span>
+                            <span aria-disabled="true" className="opacity-50">3x3</span>
                             <span>5x5</span>
-                            <span>7x7</span>
+                            <span aria-disabled="true" className="opacity-50">7x7</span>
                           </div>
                         </div>
                       </FormControl>
@@ -599,17 +612,17 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                     <FormItem className="w-full md:auto flex flex-row justify-between items-center">
                       <FormLabel className="whitespace-nowrap w-48">Bingo Data</FormLabel>
                       <FormControl>
-                        <Dialog>
+                        <Dialog onOpenChange={() => {importTab.includes("inputTab") ? "" : setImportTab("inputData")}}>
                           <DialogTrigger asChild>
                             <div className="w-full md:w-[30rem] flex flex-row justify-end items-center gap-3 px-2">
                               <Button type="button" variant="outline" className="w-full md:w-1/3">Import Bingo Data</Button>
-                              <div className="hidden md:w-[15.4rem] md:flex whitespace-nowrap rounded-md border">
-                                <div className="flex flex-row gap-3 p-2 shadow-inner overflow-x-scroll py-3">
+                              <div className="hidden md:w-[15.4rem] md:flex whitespace-nowrap rounded-md border overflow-x-scroll">
+                                <div className="flex flex-row gap-3 p-2 shadow-inner py-3">
                                   {parsedData.length > 0 ? (
                                     parsedData.map((dataItem, i) => (
                                       <div key={i} className="w-full text-sm flex justify-start items-center gap-2 px-2 py-1 bg-secondary text-secondary-foreground rounded-2xl text-wrap">
                                         <Badge className=" bg-primary text-primary-foreground px-1.5 py-0.5 h-5">{i+1}</Badge> 
-                                        <span className="text-wrap break-normal ">{dataItem}</span>
+                                        <span className="text-nowrap break-normal ">{dataItem}</span>
                                       </div>
                                     ))
                                   ) : (
@@ -638,8 +651,14 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                                   </CardHeader>
                                   <CardContent className="space-y-2">
                                     <div className="space-y-1">
-                                      <Label htmlFor="name">Delimeter</Label>
-                                      <CardDescription>Supports Regex. Default method is csv {"("}<code className="bg-muted line-sp rounded p-0.5">,</code>{")"}. Advanced help can be found <Link href="https://regexr.com" target="_blank" className="text-accent-foreground">here</Link>.</CardDescription>
+                                      <Label htmlFor="name">Separator</Label>
+                                      <CardDescription>
+                                        Can separate by {" "}
+                                        <code className="bg-muted line-sp rounded px-0.5 cursor-pointer text-accent-foreground" onClick={() => {setDelimiter(",")}}>commas {"(,)"}</code>,{" "}
+                                        <code className="bg-muted line-sp rounded px-0.5 cursor-pointer text-accent-foreground" onClick={() => {setDelimiter("\\n")}}>new lines {"(\\n)"}</code>, {" "}
+                                        <code className="bg-muted line-sp rounded px-0.5 cursor-pointer text-accent-foreground" onClick={() => {setDelimiter("JSON")}}>JSON {"(json)"}</code>, {" "}
+                                        or custom <code className="bg-muted line-sp rounded px-0.5 cursor-pointer text-accent-foreground" onClick={() => {setDelimiter(",")}}><Link href="https://regexr.com" target="_blank">Regex</Link></code>. 
+                                      </CardDescription>
                                       <Input id="delimeter" value={delimiter} onChange={(e) => setDelimiter(e.target.value)} />
                                     </div>
                                     <div className="space-y-1">
