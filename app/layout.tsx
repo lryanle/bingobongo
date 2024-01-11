@@ -92,9 +92,6 @@ export default async function RootLayout({
 }>) {
 	const session = await getServerSession(authOptions);
 
-  // change favicon based on lightmode/dark mode
-  
-
 	return (
 		<>
 			<html lang="en" suppressHydrationWarning>

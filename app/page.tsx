@@ -1,6 +1,5 @@
-"use client"
-
 import BingoCard, { BingoCardProps } from "@/components/bingo-card/bingocard";
+import Landing from "@/components/home/landing";
 import CreateBingo from "@/components/new-game/createbingo";
 import { redirect, useRouter } from "next/navigation";
 
@@ -40,23 +39,21 @@ export default function Home() {
 	};
 
 
-  let roomIdInput = ''
-  const router = useRouter()
+  // let roomIdInput = ''
+  // const router = useRouter()
 
-  const createRoom = async () => {
-    // TODO: Check if room exists on account and return that if exists. Else, create a room
+  // const createRoom = async () => {
+  //   // TODO: Check if room exists on account and return that if exists. Else, create a room
 
-    const res = await fetch('/api/rooms/create')
-    const roomId: string = await res.text()
-    router.push(`/bingo/${roomId}`)
-  }
+  //   const res = await fetch('/api/rooms/create')
+  //   const roomId: string = await res.text()
+  //   router.push(`/bingo/${roomId}`)
+  // }
 
 	return (
-		<main>
-      <div>
-				<div className="w-full h-full flex justify-center items-center my-2">
-					<CreateBingo partyleader={"lryanle"} />
-				</div>
+		<main className="h-full w-full">
+      <div className="h-full w-full">
+				<Landing />
         {/* <BingoCard mode={BingoCardArgs.mode } modeName={BingoCardArgs.modeName} lobbyName={BingoCardArgs.lobbyName} size={5} bingoData={BingoCardArgs.bingoData as BingoCardProps["bingoData"]} /> */}
         {/* <button onClick={createRoom}>Create room</button>
         <div className='flex gap-2'>
