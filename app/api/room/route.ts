@@ -6,15 +6,15 @@ import type { BingoRoom } from "@/types/bingo";
 
 // This is a hypothetical API route function
 export async function POST(request: Request) {
-	// const session = await getServerSession(authOptions); //TODO!!!: UNDO THE ! IN !SESSION
-	const session = {
-		user: {
-			name: "Ryan",
-			email: "lryanlle@gmail.com",
-			image: "https://lh3.googleusercontent.com/a/ACg8ocKrTiLNkbQd_l12quqQoNKD1kRXchXv25I_stHpEG_Cog=s96-c",
-			id: "65938eb8e78270e2b5e30262",
-		},
-	};
+	const session = await getServerSession(authOptions); //TODO!!!: UNDO THE ! IN !SESSION
+	// const session = {
+	// 	user: {
+	// 		name: "Ryan",
+	// 		email: "lryanlle@gmail.com",
+	// 		image: "https://lh3.googleusercontent.com/a/ACg8ocKrTiLNkbQd_l12quqQoNKD1kRXchXv25I_stHpEG_Cog=s96-c",
+	// 		id: "65938eb8e78270e2b5e30262",
+	// 	},
+	// };
 
 	try {
 		if (session) { // Signed in 
@@ -34,7 +34,6 @@ export async function POST(request: Request) {
           // check if room data is valid based on type BingoRoom from @/types/bingo
           //TODO: Make this prettier with tRPC
           if ( roomData === undefined || roomData === null
-            || roomData.id === undefined || roomData.id.length != 24
             || roomData.roomName.length < 1 || roomData.roomName.length > 32
             || roomData.gameMode.length < 1
             || roomData.boardSize === 50 // TODO: change this if future board sizes are added 
@@ -48,7 +47,7 @@ export async function POST(request: Request) {
 
           // make prisma call to upsert room
           try {
-            await prisma.room.upsert({
+            const roomObj = await prisma.room.upsert({
               where: {
                 ownerId: roomData.ownerId,
               },
@@ -59,7 +58,7 @@ export async function POST(request: Request) {
                 gameMode: roomData.gameMode,
                 boardSize: roomData.boardSize[0] as number,
                 teams: roomData.teams.map((team: {name: string, color: string}) => {return {name: team.name, color: team.color}}),
-                ownerId: userId,
+                ownerId: userId as string,
                 lastUpdated: new Date(),
               },
               update: {
@@ -73,7 +72,7 @@ export async function POST(request: Request) {
               },
             });
 
-            return new Response("Successfully created room", { status: 200 });
+            return new Response(roomObj.id, { status: 200 });
           } catch (e) {
             return new Response("Internal Server Error: Error upserting room", { status: 500 });
           }

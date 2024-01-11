@@ -54,10 +54,10 @@ export default function Navbar() {
           Bingo
         </Link>
         <Link
-          href="/matches?new=true"
+          href="/bingo/create"
           className={cn(
             "transition-colors hover:text-foreground/80",
-            pathname?.startsWith("/matches?new=true")
+            pathname?.startsWith("/bingo/create")
               ? "text-foreground"
               : "text-foreground/60"
           )}

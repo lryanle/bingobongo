@@ -48,6 +48,9 @@ import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/authOptions";
+import DOMPurify from "dompurify";
 
 const teamNameSchema = z
   .string()
@@ -113,9 +116,10 @@ const formSchema = z.object({
 
 export interface CreateBingoProps {
   partyleader: string;
+  leaderid: string;
 }
 
-export default function CreateBingo({ partyleader }: CreateBingoProps) {
+export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps) {
   const [mounted, setMounted] = useState(false);
 
   const [roomName] = useState(`${partyleader}'s Room`);
@@ -221,8 +225,39 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    // Do something with the form values.
-    // ✅ This will be type-safe and validated.
+    const roomData = {
+      roomName: values.roomName,
+      roomPassword: values.roomPassword,
+      bingoSeed: values.bingoSeed,
+      gameMode: values.gameMode,
+      boardSize: values.boardSize,
+      teams: values.teams,
+      ownerId: leaderid, // Assuming you have the ownerId (partyleader.id) available here
+    };
+  
+    // Convert data to FormData as your API expects formData
+    const formData = new FormData();
+      formData.append("id", DOMPurify.sanitize(leaderid)); // Replace with actual user ID
+      formData.append("roomData", JSON.stringify(roomData));
+    
+      try {
+        const response = await fetch('/api/room', {
+          method: 'POST',
+          body: formData,
+        });
+    
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        } else {
+          const result = await response.text();
+          console.log(result);
+          // Handle successful creation here, like redirecting to the room or showing a success message
+        }
+      } catch (e) {
+        console.error('There was a problem creating the room:', e);
+        // Handle errors here, like showing an error message to the user
+      }
+
     console.log(values);
   };
 
@@ -587,7 +622,7 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                   render={({ field }) => (
                     <FormItem className="w-full md:auto flex flex-row justify-between items-center">
                       <FormLabel className="whitespace-nowrap w-48">
-                        {"Bingo Preset"}
+                        {"Board Size"}
                         <br />
                         <span className="text-xs text-secondary-foreground opacity-50">
                           {"(temp disabled)"}
@@ -722,7 +757,7 @@ export default function CreateBingo({ partyleader }: CreateBingoProps) {
                   )}
                 />
                 <div className="flex w-full justify-center">
-                  <Button type="submit" className="w-full">Submit</Button>
+                  <Button type="submit" className="w-full">Create Bingo</Button>
                 </div>
               </form>
             </Form>
