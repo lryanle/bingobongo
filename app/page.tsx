@@ -1,9 +1,12 @@
 import BingoCard, { BingoCardProps } from "@/components/bingo-card/bingocard";
 import Landing from "@/components/home/landing";
 import CreateBingo from "@/components/new-game/createbingo";
+import { getServerSession } from "next-auth/next";
 import { redirect, useRouter } from "next/navigation";
+import { authOptions } from "@/app/api/auth/[...nextauth]/authOptions";
+import { Session } from "next-auth";
 
-export default function Home() {
+export default async function Home() {
 	const BingoCardArgs = {
 		modeName: "Battleship Bingo",
 		lobbyName: "Lryanle's Lobby",
@@ -38,6 +41,8 @@ export default function Home() {
 		],
 	};
 
+	const session = await getServerSession(authOptions);
+
 
   // let roomIdInput = ''
   // const router = useRouter()
@@ -53,7 +58,7 @@ export default function Home() {
 	return (
 		<main className="h-full w-full">
       <div className="h-full w-full">
-				<Landing />
+				<Landing session={session as Session} />
         {/* <BingoCard mode={BingoCardArgs.mode } modeName={BingoCardArgs.modeName} lobbyName={BingoCardArgs.lobbyName} size={5} bingoData={BingoCardArgs.bingoData as BingoCardProps["bingoData"]} /> */}
         {/* <button onClick={createRoom}>Create room</button>
         <div className='flex gap-2'>

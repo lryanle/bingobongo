@@ -1,23 +1,27 @@
-import React, { ReactNode } from 'react'
+import React from 'react'
 import { Icons } from '@/components/icons';
 import Spotlight, { SpotlightCard } from '@/components/home/spotlight';
 
 import Link from 'next/link';
-import { buttonVariants } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { Session } from 'next-auth';
 
 type BingoSelectProps = {
   children?: React.ReactNode,
   className?: string,
-  props?: React.HTMLAttributes<HTMLElement>
+  props?: React.HTMLAttributes<HTMLElement>,
+  session: Session,
 }
 
 
 export default function BingoSelect({
   children,
   className = '',
-  props
+  props,
+  session
 }: BingoSelectProps) {
+  const signedin = session?.user ? true : false;
 
   return (
     <Spotlight className={cn(className,"flex flex-col md:flex-row justify-center items-center gap-6 mx-auto group")} {...props}>
@@ -38,10 +42,17 @@ export default function BingoSelect({
               <h2 className="text-xl text-primary dark:text-slate-200 font-bold mb-1">Play With Friends</h2>
               <p className="text-sm text-muted-foreground dark:text-slate-500">Join and play bingo with friends through an invite code or sharable link.</p>
             </div>
-            <Link href="/bingo/join" className={cn(buttonVariants({ variant: "default" }), "inline-flex justify-center items-center gap-2 whitespace-nowrap rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-50 hover:dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-sm font-medium text-slate-800 dark:text-slate-300 focus-visible:outline-none focus-visible:ring focus-visible:ring-indigo-300 dark:focus-visible:ring-slate-600 transition-colors duration-150")}>
-              <span>Join Bingo</span>
-              <Icons.join className="fill-slate-500 w-5 h-5" />
-            </Link>
+            {signedin ? (
+              <Link href="/bingo/join" className={cn(buttonVariants({ variant: "default" }), "inline-flex justify-center items-center gap-2 whitespace-nowrap rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-50 hover:dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-sm font-medium text-slate-800 dark:text-slate-300 focus-visible:outline-none focus-visible:ring focus-visible:ring-indigo-300 dark:focus-visible:ring-slate-600 transition-colors duration-150")}>
+                <span>Join Bingo</span>
+                <Icons.join className="fill-slate-500 w-5 h-5" />
+              </Link>
+            ) : (
+              <Button disabled className={cn(buttonVariants({ variant: "default" }), "inline-flex justify-center items-center gap-2 whitespace-nowrap rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-50 hover:dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-sm font-medium text-slate-800 dark:text-slate-300 focus-visible:outline-none focus-visible:ring focus-visible:ring-indigo-300 dark:focus-visible:ring-slate-600 transition-colors duration-150")}>
+                <span>Join Bingo — Sign In Required</span>
+              </Button>
+            )}
+            
           </div>
         </div>
       </SpotlightCard>
@@ -62,10 +73,16 @@ export default function BingoSelect({
               <h2 className="text-xl text-primary dark:text-slate-200 font-bold mb-1">Start a New Game</h2>
               <p className="text-sm text-muted-foreground dark:text-slate-500">Start and share your bingo addiction with friends using any of our 20+ gamemodes.</p>
             </div>
-            <Link href="/bingo/create" className={cn(buttonVariants({ variant: "default" }), "inline-flex justify-center items-center gap-2 whitespace-nowrap rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-50 hover:dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-sm font-medium text-slate-800 dark:text-slate-300 focus-visible:outline-none focus-visible:ring focus-visible:ring-indigo-300 dark:focus-visible:ring-slate-600 transition-colors duration-150")}>
-              <span>Create Bingo</span>
-              <Icons.create className="fill-slate-500 w-5 h-5" />
-            </Link>
+            {signedin ? (
+              <Link href="/bingo/create" className={cn(buttonVariants({ variant: "default" }), "inline-flex justify-center items-center gap-2 whitespace-nowrap rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-50 hover:dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-sm font-medium text-slate-800 dark:text-slate-300 focus-visible:outline-none focus-visible:ring focus-visible:ring-indigo-300 dark:focus-visible:ring-slate-600 transition-colors duration-150")}>
+                <span>Create Bingo</span>
+                <Icons.create className="fill-slate-500 w-5 h-5" />
+              </Link>
+            ) : (
+              <Button disabled className={cn(buttonVariants({ variant: "default" }), "inline-flex justify-center items-center gap-2 whitespace-nowrap rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-50 hover:dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-sm font-medium text-slate-800 dark:text-slate-300 focus-visible:outline-none focus-visible:ring focus-visible:ring-indigo-300 dark:focus-visible:ring-slate-600 transition-colors duration-150")}>
+                <span>Create Bingo — Sign In Required</span>
+              </Button>
+            )}
           </div>
         </div>
       </SpotlightCard>

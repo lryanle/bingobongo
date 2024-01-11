@@ -3,8 +3,13 @@ import { Badge } from '@/components/ui/badge';
 import { Icons } from '@/components/icons';
 import BingoSelect from '@/components/home/bingoselect';
 import { Meteors } from './meteor';
+import { Session } from 'next-auth';
 
-export default function Landing() {
+type Props = {
+  session: Session;
+};
+
+export default function Landing({session}: Props) {
 
   return (
     <div className="flex justify-center items-center flex-col my-16 h-full w-full">
@@ -23,7 +28,7 @@ export default function Landing() {
           <Badge variant="secondary" className="text-sm px-3">100% Free</Badge>
         </div>
       </div>
-      <BingoSelect className="mt-16" />
+      <BingoSelect session={session} className="mt-16" />
       <Meteors number={10} />
     </div>
   )

@@ -134,6 +134,8 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
   const [parsedData, setParsedData] = useState<string[]>([]);
   const [importTab, setImportTab] = useState("inputData");
 
+  const signedout = leaderid === undefined;
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -275,7 +277,7 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
                       <div className="flex flex-row justify-center items-center">
                         <FormLabel className="whitespace-nowrap w-48">Room Name</FormLabel>
                         <FormControl>
-                          <Input placeholder={roomName} {...field} />
+                          <Input placeholder={roomName} {...field} disabled={signedout} />
                         </FormControl>
                       </div>
                       <FormMessage>
@@ -295,6 +297,7 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
                           <Input
                             type="password"
                             placeholder="Password"
+                            disabled={signedout}
                             {...field}
                           />
                         </FormControl>
@@ -313,7 +316,7 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
                       <div className="flex flex-row justify-center items-center">
                         <FormLabel className="whitespace-nowrap w-48">Bingo Seed</FormLabel>
                         <FormControl>
-                          <Input placeholder="Bingo Seed" {...field} />
+                          <Input placeholder="Bingo Seed" {...field} disabled={signedout} />
                         </FormControl>
                       </div>
                       <FormMessage>
@@ -363,6 +366,7 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
                                                   : -65,
                                               ),
                                             }}
+                                            disabled={signedout}
                                           >
                                             <Icons.edit className="w-4 h-4" />
                                           </Button>
@@ -545,6 +549,7 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
                                           ),
                                         }}
                                         onClick={() => handleRemoveTeam(i)}
+                                        disabled={signedout}
                                       >
                                         <Icons.minus />
                                       </Button>
@@ -560,6 +565,7 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
                                 type="button"
                                 className="flex shadow h-10 px-3 md:px-2.5 my-2 items-center gap-2 rounded-lg border-primary-foreground border"
                                 onClick={handleAddTeam}
+                                disabled={signedout}
                               >
                                 <span className="hidden md:block">Add Team</span>
                                 <Icons.plus />
@@ -583,8 +589,8 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
                       <div className="w-full flex flex-col justify-center items-center">
                         <FormControl className="w-full">
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <SelectTrigger className="w-full" style={{marginTop: 0}}>
-                              <SelectValue placeholder="Select a Game Mode" />
+                            <SelectTrigger className="w-full" style={{marginTop: 0}} disabled={signedout}>
+                              <SelectValue placeholder="Select a Game Mode"/>
                             </SelectTrigger>
                             <SelectContent>
                               <SelectGroup>
@@ -654,9 +660,9 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
                       <FormLabel className="whitespace-nowrap w-48">Bingo Data</FormLabel>
                       <FormControl>
                         <Dialog onOpenChange={() => {importTab.includes("inputTab") ? "" : setImportTab("inputData")}}>
-                          <DialogTrigger asChild>
+                          <DialogTrigger disabled={signedout} asChild={!signedout} >
                             <div className="w-full md:w-[30rem] flex flex-row justify-end items-center gap-3 px-2" style={{marginTop: 0}}>
-                              <Button type="button" variant="outline" className="w-full md:w-1/3">Import Bingo Data</Button>
+                              <Button type="button" variant="outline" className="w-full md:w-1/3" disabled={signedout}>Import Bingo Data</Button>
                               <div className="hidden md:w-[15.4rem] md:flex whitespace-nowrap rounded-md border overflow-x-scroll">
                                 <div className="flex flex-row gap-3 p-2 shadow-inner py-3">
                                   {parsedData.length > 0 ? (
@@ -753,7 +759,7 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
                   )}
                 />
                 <div className="flex w-full justify-center">
-                  <Button type="submit" className="w-full">Create Bingo</Button>
+                  <Button type="submit" className="w-full" disabled={signedout}>{!signedout ? "Create Bingo" : "Create Bingo — Sign In Required"}</Button>
                 </div>
               </form>
             </Form>

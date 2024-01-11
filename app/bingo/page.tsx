@@ -1,9 +1,11 @@
 import BingoSelect from "@/components/home/bingoselect";
+import { Session, getServerSession } from "next-auth";
 import React from "react";
+import { authOptions } from "@/app/api/auth/[...nextauth]/authOptions";
 
-type Props = {};
+export default async function BingoSelectPage() {
+  const session = await getServerSession(authOptions);
 
-export default function BingoSelectPage({}: Props) {
 	return (
 		<div className="flex justify-center items-center flex-col my-32 h-full w-full gap-8">
 			<div className="flex justify-center items-center flex-col gap-4 space-y-4">
@@ -13,7 +15,7 @@ export default function BingoSelectPage({}: Props) {
 					</span>
 				</span>
 			</div>
-			<BingoSelect />
+			<BingoSelect session={session as Session} />
 		</div>
 	);
 }
