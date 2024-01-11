@@ -1,4 +1,6 @@
-import React from 'react'
+"use client"
+
+import React, { useState } from 'react'
 import { Icons } from '@/components/icons';
 import Spotlight, { SpotlightCard } from '@/components/home/spotlight';
 
@@ -6,6 +8,8 @@ import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Session } from 'next-auth';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 type BingoSelectProps = {
   children?: React.ReactNode,
@@ -22,6 +26,7 @@ export default function BingoSelect({
   session
 }: BingoSelectProps) {
   const signedin = session?.user ? true : false;
+  const [joinCode, setJoinCode] = useState<string>("");
 
   return (
     <Spotlight className={cn(className,"flex flex-col md:flex-row justify-center items-center gap-6 mx-auto group")} {...props}>
@@ -43,10 +48,28 @@ export default function BingoSelect({
               <p className="text-sm text-muted-foreground dark:text-slate-500">Join and play bingo with friends through an invite code or sharable link.</p>
             </div>
             {signedin ? (
-              <Link href="/bingo/join" className={cn(buttonVariants({ variant: "default" }), "inline-flex justify-center items-center gap-2 whitespace-nowrap rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-50 hover:dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-sm font-medium text-slate-800 dark:text-slate-300 focus-visible:outline-none focus-visible:ring focus-visible:ring-indigo-300 dark:focus-visible:ring-slate-600 transition-colors duration-150")}>
-                <span>Join Bingo</span>
-                <Icons.join className="fill-slate-500 w-5 h-5" />
-              </Link>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="default" className="inline-flex justify-center items-center gap-2 whitespace-nowrap rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-50 hover:dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-sm font-medium text-slate-800 dark:text-slate-300 focus-visible:outline-none focus-visible:ring focus-visible:ring-indigo-300 dark:focus-visible:ring-slate-600 transition-colors duration-150">
+                    <span>Join Bingo</span>
+                    <Icons.join className="fill-slate-500 w-5 h-5" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Join Bingo</DialogTitle>
+                    <DialogDescription>
+                      Enter a valid invite code or sharable link to join a bingo game.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="w-full h-full flex justify-center items-center">
+                      <Input id="joincode" className="w-full" onChange={(e) => setJoinCode(e.target.value)}  autoCorrect='false' autoCapitalize='false' aria-autocomplete='none' autoComplete='off'/>
+                  </div>
+                  <DialogFooter>
+                    <Link type="submit" href={`/play?=${encodeURIComponent(joinCode)}`} className={cn(buttonVariants({ variant: "default" }))}>Join Game</Link>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             ) : (
               <Button disabled className={cn(buttonVariants({ variant: "default" }), "inline-flex justify-center items-center gap-2 whitespace-nowrap rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-50 hover:dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-sm font-medium text-slate-800 dark:text-slate-300 focus-visible:outline-none focus-visible:ring focus-visible:ring-indigo-300 dark:focus-visible:ring-slate-600 transition-colors duration-150")}>
                 <span>Join Bingo — Sign In Required</span>
