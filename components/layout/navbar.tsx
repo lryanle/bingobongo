@@ -46,7 +46,7 @@ export default function Navbar() {
           href="/bingo"
           className={cn(
             "transition-colors hover:text-foreground/80",
-            pathname?.startsWith("/bingo")
+            (pathname === "/bingo" || pathname === "/bingo/join")
               ? "text-foreground"
               : "text-foreground/60"
           )}

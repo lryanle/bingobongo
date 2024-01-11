@@ -200,7 +200,6 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
   const handleRemoveTeam = (index: number) => {
     const newTeams = teams.filter((_, i) => i !== index);
     setTeams(newTeams);
-    console.log(newTeams);
   };
 
   const handleNameChange = (name: string, index: number) => {
@@ -250,15 +249,12 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
           throw new Error(`HTTP error! status: ${response.status}`);
         } else {
           const result = await response.text();
-          console.log(result);
           // Handle successful creation here, like redirecting to the room or showing a success message
         }
       } catch (e) {
         console.error('There was a problem creating the room:', e);
         // Handle errors here, like showing an error message to the user
       }
-
-    console.log(values);
   };
 
   return (
@@ -269,7 +265,7 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
       <div className="flex md:py-2 px-4 md:px-8 flex-col items-center gap-4 pb-4 self-stretch">
         <div className="flex flex-col items-start gap-4 self-stretch md:w-[34rem]">
           {mounted ? (
-            <Form {...form}>
+            <Form {...form}> {/* FIXME: XSS Vulnerability*/}
               <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col items-start gap-4 self-stretch md:w-[34rem]">
                 <FormField
                   control={form.control}
