@@ -2,6 +2,7 @@ import React from 'react'
 import { Badge } from '@/components/ui/badge';
 import { Icons } from '@/components/icons';
 import BingoSelect from '@/components/home/bingoselect';
+import { Meteors } from './meteor';
 
 export default function Landing() {
 
@@ -23,6 +24,7 @@ export default function Landing() {
         </div>
       </div>
       <BingoSelect className="mt-16" />
+      <Meteors number={10} />
     </div>
   )
 }
