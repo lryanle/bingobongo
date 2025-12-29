@@ -15,7 +15,7 @@ export default function Navbar() {
     <div className="mr-4 flex">
       <Link href="/" className="mr-6 flex items-center space-x-2">
         <div className="w-6 h-6">
-          <Icons.logo className="h-6 w-6" />
+          <Icons.Logo className="h-6 w-6" />
         </div>
         <span className="font-bold sm:inline-block">
           {siteConfig.name.replace(/ /g, "\u00a0")}

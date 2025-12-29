@@ -368,7 +368,7 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
                                             }}
                                             disabled={signedout}
                                           >
-                                            <Icons.edit className="w-4 h-4" />
+                                            <Icons.Edit className="w-4 h-4" />
                                           </Button>
                                         </DialogTrigger>
                                         <DialogContent className="sm:max-w-md">
@@ -551,7 +551,7 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
                                         onClick={() => handleRemoveTeam(i)}
                                         disabled={signedout}
                                       >
-                                        <Icons.minus />
+                                        <Icons.Minus />
                                       </Button>
                                     </span>
                                   </div>
@@ -568,7 +568,7 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
                                 disabled={signedout}
                               >
                                 <span className="hidden md:block">Add Team</span>
-                                <Icons.plus />
+                                <Icons.Plus />
                               </Button>
                             )}
                           </div>

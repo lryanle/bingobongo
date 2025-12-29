@@ -39,7 +39,7 @@ export function MobileNavbar() {
           variant="ghost"
           className="px-0 text-base hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 md:hidden"
         >
-          <Icons.menu className="h-4 w-4" />
+          <Icons.Menu className="h-4 w-4" />
           <span className="sr-only">Toggle Menu</span>
         </Button>
       </SheetTrigger>
@@ -49,7 +49,7 @@ export function MobileNavbar() {
           className="flex items-center gap-2"
           onOpenChange={setOpen}
         >
-          <Icons.logo className="h-4 w-4" />
+          <Icons.Logo className="h-4 w-4" />
           <span className="font-bold">{siteConfig.name}</span>
         </MobileLink>
         <ScrollArea className="my-4 h-[calc(100vh-8rem)] pb-10 pl-6">
