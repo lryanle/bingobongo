@@ -1,4 +1,4 @@
-import { ObjectId, Db, Collection } from "mongodb";
+import { ObjectId, Db, Collection, Document } from "mongodb";
 import { randomUUID } from "crypto";
 import clientPromise from "./mongodb";
 import type {
@@ -36,7 +36,7 @@ async function getDb(): Promise<Db> {
 }
 
 // Collections
-async function getCollection<T>(name: string): Promise<Collection<T>> {
+async function getCollection<T extends Document>(name: string): Promise<Collection<T>> {
   const db = await getDb();
   return db.collection<T>(name);
 }
