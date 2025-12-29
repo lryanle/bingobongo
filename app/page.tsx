@@ -2,7 +2,7 @@ import BingoCard, { BingoCardProps } from "@/components/bingo-card/bingocard";
 import Landing from "@/components/home/landing";
 import CreateBingo from "@/components/new-game/createbingo";
 import { getServerSession } from "next-auth/next";
-import { redirect, useRouter } from "next/navigation";
+import { redirect } from "next/navigation";
 import { authOptions } from "@/app/api/auth/[...nextauth]/authOptions";
 import { Session } from "next-auth";
 

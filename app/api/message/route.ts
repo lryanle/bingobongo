@@ -8,10 +8,8 @@ export async function POST(req: Request) {
   await pusherServer.trigger(roomId, 'incoming-message', text)
 
   await db.message.create({
-    data: {
-      text,
-      chatRoomId: roomId,
-    },
+    text,
+    chatRoomId: roomId,
   })
 
   return new Response(JSON.stringify({ success: true }))

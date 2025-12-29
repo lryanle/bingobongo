@@ -1,5 +1,4 @@
 import CreateBingo from '@/components/new-game/createbingo';
-import { db } from '@/lib/db'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/app/api/auth/[...nextauth]/authOptions'
 import { generateName } from '@/lib/utils';

@@ -1,8 +1,7 @@
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/authOptions";
 import type { BingoRoom } from "@/types/bingo";
+import { db } from "@/lib/db";
 
 // This is a hypothetical API route function
 export async function POST(request: Request) {
@@ -45,51 +44,49 @@ export async function POST(request: Request) {
             return new Response("Bad Request: Room data missing data", { status: 400 });
           }
 
-          // make prisma call to upsert room
+          // make database call to upsert room
           try {
-            const roomObj = await prisma.room.upsert({
-              where: {
-                ownerId: roomData.ownerId,
-              },
-              create: {
+            const roomObj = await db.room.upsertByOwnerId(
+              userId as string,
+              {
                 roomName: roomData.roomName,
                 roomPassword: roomData.roomPassword,
                 bingoSeed: roomData.bingoSeed,
                 gameMode: roomData.gameMode,
                 boardSize: roomData.boardSize[0] as number,
                 teams: roomData.teams.map((team: {name: string, color: string}) => {return {name: team.name, color: team.color}}),
-                ownerId: userId as string,
-                lastUpdated: new Date(),
+                owner_id: userId as string,
               },
-              update: {
+              {
                 roomName: roomData.roomName,
                 roomPassword: roomData.roomPassword,
                 bingoSeed: roomData.bingoSeed,
                 gameMode: roomData.gameMode,
                 boardSize: roomData.boardSize[0] as number,
                 teams: roomData.teams.map((team: {name: string, color: string}) => {return {name: team.name, color: team.color}}),
-                lastUpdated: new Date(),
-              },
-            });
+              }
+            );
 
-            return new Response(roomObj.id, { status: 200 });
+            return new Response(roomObj._id.toString(), { status: 200 });
           } catch (e) {
+            console.error("Error upserting room:", e);
             return new Response("Internal Server Error: Error upserting room", { status: 500 });
           }
         } catch (e) {
+          console.error("Invalid room data:", e);
           return new Response("Bad Request: Invalid room data", { status: 400 });
         }
 			} catch (e) {
+				console.error("Missing room data and/or user data:", e);
 				return new Response("Bad Request: Missing room data and/or user data", {
 					status: 400,
 				});
 			}
-
-			return new Response("Authorized", { status: 200 });
 		} else { // Not Signed in
 			return new Response("Unauthorized", { status: 401 });
 		}
 	} catch (e) {
+		console.error("Internal Server Error:", e);
 		return new Response("Internal Server Error", { status: 500 });
 	}
 }

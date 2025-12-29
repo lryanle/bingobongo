@@ -36,3 +36,5 @@ yarn-error.log*
 next-env.d.ts
 
 .vscode
+# Snyk Security Extension - AI Rules (auto-generated)
+.cursor/rules/snyk_rules.mdc

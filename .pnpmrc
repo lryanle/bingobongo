@@ -1,0 +1,8 @@
+# Windows junction point configuration
+# Use hoisted node linker to reduce junction point issues on Windows
+node-linker=hoisted
+# Enable strict peer dependencies
+strict-peer-dependencies=false
+# Auto install peers
+auto-install-peers=true
+

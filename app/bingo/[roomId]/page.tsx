@@ -11,14 +11,12 @@ interface PageProps {
 const page = async ({ params }: PageProps) => {
   const { roomId } = params
   const existingMessages = await db.message.findMany({
-    where: {
-      chatRoomId: roomId,
-    },
+    chatRoomId: roomId,
   })
 
   const serializedMessages = existingMessages.map((message) => ({
     text: message.text,
-    id: message.id,
+    id: message._id,
   }))
 
   return (
