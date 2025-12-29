@@ -5,14 +5,15 @@ export interface BingoCardProps {
 	lobbyName: string;
   mode: "default" | "battleship",
   size: number,
-  bingoData: [{
+  bingoData: Array<{
     title?: string,
-    slotItems?: [{color: string, number: number}],
+    slotItems?: Array<{color: string, number: number}>,
     favorite?: boolean,
     locked?: boolean,
     disabled?: boolean,
-  }],
-  battleshipData?: [{position: [x: number, y: number], number: number}]
+    onClick?: () => void | Promise<void>,
+  }>,
+  battleshipData?: Array<{position: [x: number, y: number], number: number}>
 }
 
 function getUniqueColors(bingoCardData: BingoCardProps["bingoData"]) {
@@ -27,7 +28,7 @@ function getUniqueColors(bingoCardData: BingoCardProps["bingoData"]) {
   return Array.from(colors).map(color => `bg-[${color}]`).join(" ");
 }
 
-export default function BingoCard({ modeName, lobbyName, mode, size, bingoData, battleshipData }: BingoCardProps) {
+export default function BingoCard({ modeName, lobbyName, mode, size, bingoData, battleshipData }: Readonly<BingoCardProps>) {
   // Convert bingoData to a 2d array for easier rendering
   const bingoData2d = [];
   for (let i = 0; i < bingoData.length; i += size) {
@@ -35,10 +36,10 @@ export default function BingoCard({ modeName, lobbyName, mode, size, bingoData, 
   }
 
 	return (
-		<div className="inline-flex flex-col p-5 justify-center items-center gap-2 rounded-3xl bg-neutral-925 shadow">
-			<div className="flex py-3 px-0 flex-col items-center gap-1 self-stretch rounded-2xl bg-neutral-900 bg-opacity-50 backdrop-blur-xl">
-				<div className="flex justify-center items-start text-white text-center text-3xl font-semibold">{modeName}</div>
-        <div className="text-white font-normal text-xl">{lobbyName}</div>
+		<div className="inline-flex flex-col p-5 justify-center items-center gap-2 rounded-3xl bg-card border border-border shadow">
+			<div className="flex py-3 px-0 flex-col items-center gap-1 self-stretch rounded-2xl bg-muted/50 backdrop-blur-xl">
+				<div className="flex justify-center items-start text-foreground text-center text-3xl font-semibold">{modeName}</div>
+        <div className="text-foreground font-normal text-xl">{lobbyName}</div>
 			</div>
 			<div className="flex flex-col items-center gap-2 self-stretch">
 

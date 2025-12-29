@@ -49,6 +49,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import DOMPurify from "dompurify";
+import { useRouter } from "next/navigation";
 
 const teamNameSchema = z
   .string()
@@ -118,7 +119,9 @@ export interface CreateBingoProps {
 }
 
 export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps) {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [roomName] = useState(`${partyleader}'s Room`);
   const [bingoSeed] = useState<string>(crypto.randomBytes(16).toString("hex"));
@@ -223,40 +226,111 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
     }
   };
 
+  const [existingRoom, setExistingRoom] = useState<{
+    id: string;
+    roomName: string;
+    gameMode: string;
+    playerCount: number;
+    activityCount: number;
+  } | null>(null);
+  const [showOverwriteDialog, setShowOverwriteDialog] = useState(false);
+  const [pendingRoomData, setPendingRoomData] = useState<z.infer<typeof formSchema> | null>(null);
+
+  // Check for existing room on mount
+  useEffect(() => {
+    if (leaderid) {
+      fetch('/api/rooms/stats')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.room) {
+            setExistingRoom(data.room);
+          }
+        })
+        .catch((err) => console.error('Error fetching room stats:', err));
+    }
+  }, [leaderid]);
+
+  const createRoom = async (roomData: {
+    roomName: string;
+    roomPassword?: string;
+    bingoSeed: string;
+    gameMode: string;
+    boardSize: number[];
+    teams: Array<{ name: string; color: string }>;
+    ownerId: string;
+  }) => {
+    const formData = new FormData();
+    formData.append("id", DOMPurify.sanitize(roomData.ownerId));
+    formData.append("roomData", JSON.stringify(roomData));
+    
+    try {
+      const response = await fetch('/api/room', {
+        method: 'POST',
+        body: formData,
+      });
+  
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || `HTTP error! status: ${response.status}`);
+      }
+      
+      const roomId = await response.text();
+      
+      if (roomId) {
+        // Redirect to the created room
+        router.push(`/bingo/${roomId}`);
+      } else {
+        throw new Error('Room ID not returned from server');
+      }
+    } catch (e) {
+      console.error('There was a problem creating the room:', e);
+      setIsSubmitting(false);
+      alert('Failed to create room. Please try again.');
+    }
+  };
+
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     if (!leaderid) return; // Guard against undefined leaderid
     
     const roomData = {
       roomName: values.roomName,
-      roomPassword: values.roomPassword,
+      roomPassword: values.roomPassword || undefined,
       bingoSeed: values.bingoSeed,
       gameMode: values.gameMode,
       boardSize: values.boardSize,
       teams: values.teams,
-      ownerId: leaderid, // Assuming you have the ownerId (partyleader.id) available here
+      ownerId: leaderid,
     };
-  
-    // Convert data to FormData as your API expects formData
-    const formData = new FormData();
-      formData.append("id", DOMPurify.sanitize(leaderid)); // Replace with actual user ID
-      formData.append("roomData", JSON.stringify(roomData));
+
+    // Check if user has an existing room
+    if (existingRoom) {
+      setPendingRoomData(values);
+      setShowOverwriteDialog(true);
+      return;
+    }
+
+    // No existing room, create directly
+    setIsSubmitting(true);
+    await createRoom(roomData);
+  };
+
+  const handleOverwrite = async () => {
+    if (!pendingRoomData || !leaderid) return;
     
-      try {
-        const response = await fetch('/api/room', {
-          method: 'POST',
-          body: formData,
-        });
+    setIsSubmitting(true);
+    setShowOverwriteDialog(false);
     
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        } else {
-          const result = await response.text();
-          // Handle successful creation here, like redirecting to the room or showing a success message
-        }
-      } catch (e) {
-        console.error('There was a problem creating the room:', e);
-        // Handle errors here, like showing an error message to the user
-      }
+    const roomData = {
+      roomName: pendingRoomData.roomName,
+      roomPassword: pendingRoomData.roomPassword || undefined,
+      bingoSeed: pendingRoomData.bingoSeed,
+      gameMode: pendingRoomData.gameMode,
+      boardSize: pendingRoomData.boardSize,
+      teams: pendingRoomData.teams,
+      ownerId: leaderid,
+    };
+
+    await createRoom(roomData);
   };
 
   return (
@@ -759,7 +833,13 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
                   )}
                 />
                 <div className="flex w-full justify-center">
-                  <Button type="submit" className="w-full" disabled={signedout}>{!signedout ? "Create Bingo" : "Create Bingo — Sign In Required"}</Button>
+                  <Button type="submit" className="w-full" disabled={signedout || isSubmitting}>
+                    {(() => {
+                      if (isSubmitting) return "Creating Room...";
+                      if (!signedout) return "Create Bingo";
+                      return "Create Bingo — Sign In Required";
+                    })()}
+                  </Button>
                 </div>
               </form>
             </Form>
@@ -809,6 +889,62 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
           )}
         </div>
       </div>
+      
+      {/* Overwrite Room Dialog */}
+      <Dialog open={showOverwriteDialog} onOpenChange={setShowOverwriteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Overwrite Existing Room?</DialogTitle>
+            <DialogDescription>
+              You already have an active room. Creating a new room will overwrite your existing room.
+            </DialogDescription>
+          </DialogHeader>
+          {existingRoom && (
+            <div className="py-4 space-y-2">
+              <div className="text-sm font-semibold text-foreground">Current Room Stats:</div>
+              <div className="space-y-1 text-sm text-muted-foreground">
+                <div>Room Name: <span className="text-foreground font-medium">{existingRoom.roomName}</span></div>
+                <div>Game Mode: <span className="text-foreground font-medium">{existingRoom.gameMode}</span></div>
+                <div>Players: <span className="text-foreground font-medium">{existingRoom.playerCount}</span></div>
+                <div>Activities: <span className="text-foreground font-medium">{existingRoom.activityCount}</span></div>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowOverwriteDialog(false);
+                setPendingRoomData(null);
+              }}
+              className="w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            {existingRoom && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setShowOverwriteDialog(false);
+                  setPendingRoomData(null);
+                  router.push(`/bingo/${existingRoom.id}`);
+                }}
+                className="w-full sm:w-auto"
+              >
+                Go to Room
+              </Button>
+            )}
+            <Button
+              variant="destructive"
+              onClick={handleOverwrite}
+              disabled={isSubmitting}
+              className="bg-destructive text-white w-full sm:w-auto"
+            >
+              {isSubmitting ? "Overwriting..." : "Overwrite Room"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

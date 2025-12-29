@@ -18,8 +18,8 @@ const bingoCellVariants = cva(
 				slotted: "",
 			},
 			action: {
-				default: "bg-neutral-800 bg-opacity-75",
-				disabled: "bg-neutral-800 bg-opacity-15",
+				default: "bg-card border border-border",
+				disabled: "bg-muted/30 border border-border/50",
 				locked: "bg-brown-600 bg-opacity-75 border-2 border-brown-950",
 			},
 		},
@@ -34,7 +34,7 @@ const bingoCellVariants = cva(
 export interface BingoCellProps extends VariantProps<typeof bingoCellVariants> {
 	className?: string;
 	title: string;
-	slotItems?: [{ color: string; number: number }];
+	slotItems?: Array<{ color: string; number: number }>;
 	disabled?: boolean;
 	favorite?: boolean;
 	locked?: boolean;
@@ -68,22 +68,22 @@ export default function BingoCell({
 			<div
 				className={cn(
 					bingoCellVariants({ variant, property, action, className }),
-					!(title.length > 0) ? "bg-neutral-800 bg-opacity-15" : ""
+					title.length === 0 ? "bg-muted/30" : ""
 				)}
 			>
-				{locked && <div className="text-brown-950 text-sm font-bold">Locked</div>}
-				{!disabled && (
-          <div className="flex flex-col content-center grow self-stretch text-white text-center text-xs font-normal overflow-y-scroll rounded">
-            <div className="my-auto">{title}</div>
+			{locked && <div className="text-foreground text-sm font-bold">Locked</div>}
+			{!disabled && (
+          <div className="flex flex-col content-center grow self-stretch text-foreground text-center text-xs font-normal rounded px-1">
+            <div className="my-auto line-clamp-3 break-words leading-tight">{title || ""}</div>
           </div>
-				)}
+			)}
         {(locked && disabled) && (
-          <div className="flex flex-col justify-center content-center items-center grow pb-6 self-stretch text-white text-center text-xs font-normal overflow-y-scroll rounded">
+          <div className="flex flex-col justify-center content-center items-center grow pb-6 self-stretch text-foreground text-center text-xs font-normal rounded">
             <div className="h-8 w-8">{bingocellIcon("locked", "#160909")}</div>
           </div>
 				)}
 				{displaySlotItems && (
-					<div className="flex py-1 px-2 justify-center items-center gap-1 self-stretch rounded-2xl border border-solid border-white border-opacity-10 bg-white bg-opacity-5">
+					<div className="flex py-1 px-2 justify-center items-center gap-1 self-stretch rounded-2xl border border-border/50 bg-muted/30">
 						{variant &&
 							slotItems.map((item, i) =>
 								bingocellIcon(variant, item.color, item.number, i)

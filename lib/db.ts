@@ -9,6 +9,8 @@ import type {
   Room,
   ChatRoom,
   Message,
+  Player,
+  Activity,
   CreateAccountInput,
   CreateSessionInput,
   CreateUserInput,
@@ -17,6 +19,9 @@ import type {
   UpdateRoomInput,
   CreateChatRoomInput,
   CreateMessageInput,
+  CreatePlayerInput,
+  UpdatePlayerInput,
+  CreateActivityInput,
 } from "@/types/db";
 
 // Helper to convert string to ObjectId
@@ -44,12 +49,12 @@ async function getCollection<T extends Document>(name: string): Promise<Collecti
 // Account operations
 export const accounts = {
   async findById(id: string | ObjectId): Promise<Account | null> {
-    const collection = await getCollection<Account>("accounts");
+    const collection = await getCollection<Account>("account");
     return collection.findOne({ _id: toObjectId(id) });
   },
 
   async findByProvider(provider: string, providerAccountId: string): Promise<Account | null> {
-    const collection = await getCollection<Account>("accounts");
+    const collection = await getCollection<Account>("account");
     return collection.findOne({
       provider,
       provider_account_id: providerAccountId,
@@ -57,7 +62,7 @@ export const accounts = {
   },
 
   async create(data: CreateAccountInput): Promise<Account> {
-    const collection = await getCollection<Account>("accounts");
+    const collection = await getCollection<Account>("account");
     const result = await collection.insertOne({
       _id: new ObjectId(),
       ...data,
@@ -69,7 +74,7 @@ export const accounts = {
   },
 
   async delete(id: string | ObjectId): Promise<void> {
-    const collection = await getCollection<Account>("accounts");
+    const collection = await getCollection<Account>("account");
     await collection.deleteOne({ _id: toObjectId(id) });
   },
 };
@@ -77,12 +82,12 @@ export const accounts = {
 // Session operations
 export const sessions = {
   async findByToken(sessionToken: string): Promise<Session | null> {
-    const collection = await getCollection<Session>("sessions");
+    const collection = await getCollection<Session>("session");
     return collection.findOne({ session_token: sessionToken });
   },
 
   async create(data: CreateSessionInput): Promise<Session> {
-    const collection = await getCollection<Session>("sessions");
+    const collection = await getCollection<Session>("session");
     const result = await collection.insertOne({
       _id: new ObjectId(),
       ...data,
@@ -94,7 +99,7 @@ export const sessions = {
   },
 
   async update(sessionToken: string, data: Partial<CreateSessionInput>): Promise<Session> {
-    const collection = await getCollection<Session>("sessions");
+    const collection = await getCollection<Session>("session");
     const updateData: any = { ...data };
     if (data.user_id) {
       updateData.user_id = toObjectId(data.user_id);
@@ -109,7 +114,7 @@ export const sessions = {
   },
 
   async delete(sessionToken: string): Promise<void> {
-    const collection = await getCollection<Session>("sessions");
+    const collection = await getCollection<Session>("session");
     await collection.deleteOne({ session_token: sessionToken });
   },
 };
@@ -117,17 +122,17 @@ export const sessions = {
 // User operations
 export const users = {
   async findById(id: string | ObjectId): Promise<User | null> {
-    const collection = await getCollection<User>("users");
+    const collection = await getCollection<User>("user");
     return collection.findOne({ _id: toObjectId(id) });
   },
 
   async findByEmail(email: string): Promise<User | null> {
-    const collection = await getCollection<User>("users");
+    const collection = await getCollection<User>("user");
     return collection.findOne({ email });
   },
 
   async create(data: CreateUserInput): Promise<User> {
-    const collection = await getCollection<User>("users");
+    const collection = await getCollection<User>("user");
     const result = await collection.insertOne({
       _id: new ObjectId(),
       created: new Date(),
@@ -139,7 +144,7 @@ export const users = {
   },
 
   async update(id: string | ObjectId, data: Partial<CreateUserInput>): Promise<User> {
-    const collection = await getCollection<User>("users");
+    const collection = await getCollection<User>("user");
     await collection.updateOne(
       { _id: toObjectId(id) },
       { $set: data }
@@ -150,7 +155,7 @@ export const users = {
   },
 
   async delete(id: string | ObjectId): Promise<void> {
-    const collection = await getCollection<User>("users");
+    const collection = await getCollection<User>("user");
     await collection.deleteOne({ _id: toObjectId(id) });
   },
 };
@@ -312,6 +317,106 @@ export const messages = {
   },
 };
 
+// Player operations
+export const players = {
+  async findByRoomId(roomId: string | ObjectId): Promise<Player[]> {
+    const collection = await getCollection<Player>("players");
+    return collection.find({ room_id: toObjectId(roomId) }).toArray();
+  },
+
+  async findByRoomAndUserId(roomId: string | ObjectId, userId: string | ObjectId): Promise<Player | null> {
+    const collection = await getCollection<Player>("players");
+    return collection.findOne({
+      room_id: toObjectId(roomId),
+      user_id: toObjectId(userId),
+    });
+  },
+
+  async create(data: CreatePlayerInput): Promise<Player> {
+    const collection = await getCollection<Player>("players");
+    const now = new Date();
+    const result = await collection.insertOne({
+      _id: new ObjectId(),
+      ...data,
+      room_id: toObjectId(data.room_id),
+      user_id: toObjectId(data.user_id),
+      marked_items: data.marked_items || [],
+      joined_at: data.joined_at || now,
+      last_active: data.last_active || now,
+    } as Player);
+    const player = await collection.findOne({ _id: result.insertedId });
+    if (!player) throw new Error("Failed to create player");
+    return player;
+  },
+
+  async update(roomId: string | ObjectId, userId: string | ObjectId, data: UpdatePlayerInput): Promise<Player> {
+    const collection = await getCollection<Player>("players");
+    const updateData: any = {
+      ...data,
+      last_active: data.last_active || new Date(),
+    };
+    await collection.updateOne(
+      {
+        room_id: toObjectId(roomId),
+        user_id: toObjectId(userId),
+      },
+      { $set: updateData }
+    );
+    const player = await collection.findOne({
+      room_id: toObjectId(roomId),
+      user_id: toObjectId(userId),
+    });
+    if (!player) throw new Error("Failed to update player");
+    return player;
+  },
+
+  async delete(roomId: string | ObjectId, userId: string | ObjectId): Promise<void> {
+    const collection = await getCollection<Player>("players");
+    await collection.deleteOne({
+      room_id: toObjectId(roomId),
+      user_id: toObjectId(userId),
+    });
+  },
+};
+
+// Activity operations
+export const activities = {
+  async findByRoomId(roomId: string | ObjectId, limit: number = 50): Promise<Activity[]> {
+    const collection = await getCollection<Activity>("activities");
+    return collection
+      .find({ room_id: toObjectId(roomId) })
+      .sort({ created_at: -1 })
+      .limit(limit)
+      .toArray();
+  },
+
+  async create(data: CreateActivityInput): Promise<Activity> {
+    const collection = await getCollection<Activity>("activities");
+    const now = new Date();
+    const result = await collection.insertOne({
+      _id: new ObjectId(),
+      ...data,
+      room_id: toObjectId(data.room_id),
+      user_id: toObjectId(data.user_id),
+      team_index: data.team_index,
+      created_at: data.created_at || now,
+    } as Activity);
+    const activity = await collection.findOne({ _id: result.insertedId });
+    if (!activity) throw new Error("Failed to create activity");
+    return activity;
+  },
+
+  async delete(id: string | ObjectId): Promise<void> {
+    const collection = await getCollection<Activity>("activities");
+    await collection.deleteOne({ _id: toObjectId(id) });
+  },
+
+  async deleteByRoomId(roomId: string | ObjectId): Promise<void> {
+    const collection = await getCollection<Activity>("activities");
+    await collection.deleteMany({ room_id: toObjectId(roomId) });
+  },
+};
+
 // Export a db object for database operations
 export const db = {
   account: accounts,
@@ -321,4 +426,6 @@ export const db = {
   room: rooms,
   chatRoom: chatRooms,
   message: messages,
+  player: players,
+  activity: activities,
 };

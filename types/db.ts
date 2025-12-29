@@ -142,3 +142,51 @@ export interface CreateMessageInput {
   updatedAt?: Date;
 }
 
+export interface Player {
+  _id: DBObjectId;
+  room_id: DBObjectId;
+  user_id: DBObjectId;
+  team_index?: number;
+  marked_items: number[];
+  joined_at: Date;
+  last_active: Date;
+}
+
+export interface Activity {
+  _id: DBObjectId;
+  room_id: DBObjectId;
+  user_id: DBObjectId;
+  user_name: string;
+  action: string;
+  item_title?: string;
+  cell_index?: number;
+  team_index?: number;
+  created_at: Date;
+}
+
+export interface CreatePlayerInput {
+  room_id: DBObjectId;
+  user_id: DBObjectId;
+  team_index?: number;
+  marked_items?: number[];
+  joined_at?: Date;
+  last_active?: Date;
+}
+
+export interface UpdatePlayerInput {
+  team_index?: number;
+  marked_items?: number[];
+  last_active?: Date;
+}
+
+export interface CreateActivityInput {
+  room_id: DBObjectId;
+  user_id: DBObjectId;
+  user_name: string;
+  action: string;
+  item_title?: string;
+  cell_index?: number;
+  team_index?: number;
+  created_at?: Date;
+}
+
