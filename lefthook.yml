@@ -1,0 +1,7 @@
+pre-push:
+  jobs:
+    - name: build
+      run: pnpm build
+      fail_text: |
+        ❌ Build failed (pnpm run build)! Please fix the build errors before pushing.
+        The push has been blocked to prevent broken code from being committed.
