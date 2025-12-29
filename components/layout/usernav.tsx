@@ -1,8 +1,8 @@
 "use client"
 
-import { Session } from "next-auth";
+import { Session } from "@/lib/auth";
 import UserDropdown from "./signin-user-modal";
-import { signIn } from "next-auth/react";
+import { signIn } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 
 export interface UserNavProps {
@@ -16,7 +16,7 @@ export function UserNav({session}: UserNavProps) {
     ) : (
       <Button
         size="sm"
-        onClick={() => signIn("google")}
+        onClick={async () => await signIn.social({ provider: "google" })}
       >
         Sign In
       </Button>

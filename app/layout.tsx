@@ -9,9 +9,9 @@ import { TailwindIndicator } from "@/components/layout/tailwind-indicator";
 import { ThemeProvider } from "@/components/layout/providers";
 import { Analytics } from "@/components/layout/analytics";
 import { SiteFooter } from "@/components/layout/sitefooter";
-import { Session, getServerSession } from "next-auth";
-import NextAuthProvider from "@/components/layout/nextauth-provider";
-import { authOptions } from "./api/auth/[...nextauth]/authOptions";
+import { getAuth } from "@/lib/auth";
+import { headers } from "next/headers";
+import AuthProvider from "@/components/layout/auth-provider";
 
 export const fontSans = FontSans({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -87,41 +87,39 @@ export default async function RootLayout({
 	children,
 }: Readonly<{
 	children: React.ReactNode;
-	session: Session;
 }>) {
-	const session = await getServerSession(authOptions);
+	const auth = await getAuth();
+	const session = await auth.api.getSession({ headers: await headers() });
 
 	return (
-		<>
-			<html lang="en" suppressHydrationWarning>
-				<head />
-				<body
-					className={cn(
-						"min-h-screen bg-background font-sans antialiased",
-						fontSans.className
-					)}
-				>
-					<NextAuthProvider session={session as Session}>
-						<ThemeProvider
-							attribute="class"
-							defaultTheme="system"
-							enableSystem
-							disableTransitionOnChange
-						>
-							<div vaul-drawer-wrapper="">
-								<div className="relative flex min-h-screen flex-col bg-background">
-									<SiteHeader session={session} />
-									<main className="flex-1">{children}</main>
-									<SiteFooter />
-								</div>
+		<html lang="en" suppressHydrationWarning> {/* TODO: Remove suppressHydrationWarning */}
+			<head />
+			<body
+				className={cn(
+					"min-h-screen bg-background font-sans antialiased",
+					fontSans.className
+				)}
+			>
+				<AuthProvider session={session}>
+					<ThemeProvider
+						attribute="class"
+						defaultTheme="system"
+						enableSystem
+						disableTransitionOnChange
+					>
+						<div vaul-drawer-wrapper="">
+							<div className="relative flex min-h-screen flex-col bg-background">
+								<SiteHeader session={session} />
+								<main className="flex-1">{children}</main>
+								<SiteFooter />
 							</div>
-							<TailwindIndicator />
-							<Analytics />
-							<DefaultToaster />
-						</ThemeProvider>
-					</NextAuthProvider>
-				</body>
-			</html>
-		</>
+						</div>
+						<TailwindIndicator />
+						<Analytics />
+						<DefaultToaster />
+					</ThemeProvider>
+				</AuthProvider>
+			</body>
+		</html>
 	);
 }

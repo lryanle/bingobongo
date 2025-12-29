@@ -2,20 +2,34 @@
 
 import { Popover } from "@/components/ui/popover";
 import { LayoutDashboard, LogOut, MoonIcon, SunIcon } from "lucide-react";
-import { Session } from "next-auth";
-import { signOut } from "next-auth/react";
+import { Session } from "@/lib/auth";
+import { signOut } from "@/lib/auth-client";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { Avatar, AvatarImage } from "../ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { Button } from "../ui/button";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 export default function UserDropdown({ session }: { session: Session }) {
   const { email, image, name } = session?.user || {};
+  const router = useRouter();
 
   if (!email) return null;
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      // Redirect after successful sign out
+      router.push("/");
+      router.refresh();
+    } catch (error) {
+      console.error("Error signing out:", error);
+      // Still redirect even on error to ensure user sees the logged out state
+      router.push("/");
+    }
+  };
 
   return (
     <DropdownMenu>
@@ -45,11 +59,11 @@ export default function UserDropdown({ session }: { session: Session }) {
           </p>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => redirect("/settings")} className="gap-2 cursor-pointer">
+        <DropdownMenuItem onClick={() => router.push("/settings")} className="gap-2 cursor-pointer">
           <LayoutDashboard className="h-4 w-4" />
           <p className="text-sm">Settings</p>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => signOut()} className="gap-2 cursor-pointer">
+        <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer">
           <LogOut className="h-4 w-4" />
           <p className="text-sm">Logout</p>
         </DropdownMenuItem>

@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Icons } from '@/components/icons';
 import BingoSelect from '@/components/home/bingoselect';
 import { Meteors } from './meteor';
-import { Session } from 'next-auth';
+import { Session } from '@/lib/auth';
 
 type Props = {
   session: Session;

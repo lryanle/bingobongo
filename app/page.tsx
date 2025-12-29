@@ -1,10 +1,9 @@
 import BingoCard, { BingoCardProps } from "@/components/bingo-card/bingocard";
 import Landing from "@/components/home/landing";
 import CreateBingo from "@/components/new-game/createbingo";
-import { getServerSession } from "next-auth/next";
-import { redirect } from "next/navigation";
-import { authOptions } from "@/app/api/auth/[...nextauth]/authOptions";
-import { Session } from "next-auth";
+import { getAuth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { Session } from "@/lib/auth";
 
 export default async function Home() {
 	const BingoCardArgs = {
@@ -41,7 +40,8 @@ export default async function Home() {
 		],
 	};
 
-	const session = await getServerSession(authOptions);
+	const auth = await getAuth();
+	const session = await auth.api.getSession({ headers: await headers() });
 
 
   // let roomIdInput = ''

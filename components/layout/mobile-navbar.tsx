@@ -12,11 +12,25 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Separator } from "../ui/separator";
-import { signOut, useSession } from "next-auth/react";
+import { signOut, useSession } from "@/lib/auth-client";
 
 export function MobileNavbar() {
   const [open, setOpen] = React.useState(false)
   const session = useSession()
+  const router = useRouter()
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      // Redirect after successful sign out
+      router.push("/");
+      router.refresh();
+    } catch (error) {
+      console.error("Error signing out:", error);
+      // Still redirect even on error to ensure user sees the logged out state
+      router.push("/");
+    }
+  };
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -63,7 +77,7 @@ export function MobileNavbar() {
             </MobileLink>
             {session.data && <MobileLink
               href={""}
-              onClick={() => signOut()}
+              onClick={handleSignOut}
               onOpenChange={setOpen}
             >
               Logout
@@ -106,9 +120,9 @@ export function MobileNavbar() {
 }
 
 interface MobileLinkProps extends LinkProps {
-  onOpenChange?: (open: boolean) => void
-  children: React.ReactNode
-  className?: string
+  readonly onOpenChange?: (open: boolean) => void
+  readonly children: React.ReactNode
+  readonly className?: string
 }
 
 function MobileLink({

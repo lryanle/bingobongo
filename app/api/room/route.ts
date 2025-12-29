@@ -1,11 +1,12 @@
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/authOptions";
+import { getAuth } from "@/lib/auth";
+import { headers } from "next/headers";
 import type { BingoRoom } from "@/types/bingo";
 import { db } from "@/lib/db";
 
 // This is a hypothetical API route function
 export async function POST(request: Request) {
-	const session = await getServerSession(authOptions); //TODO!!!: UNDO THE ! IN !SESSION
+	const auth = await getAuth();
+	const session = await auth.api.getSession({ headers: await headers() });
 	// const session = {
 	// 	user: {
 	// 		name: "Ryan",
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
           // make database call to upsert room
           try {
             const roomObj = await db.room.upsertByOwnerId(
-              userId as string,
+              userId,
               {
                 roomName: roomData.roomName,
                 roomPassword: roomData.roomPassword,
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
                 gameMode: roomData.gameMode,
                 boardSize: roomData.boardSize[0] as number,
                 teams: roomData.teams.map((team: {name: string, color: string}) => {return {name: team.name, color: team.color}}),
-                owner_id: userId as string,
+                owner_id: userId,
               },
               {
                 roomName: roomData.roomName,
