@@ -92,7 +92,7 @@ export default async function RootLayout({
 	const session = await auth.api.getSession({ headers: await headers() });
 
 	return (
-		<html lang="en" suppressHydrationWarning> {/* TODO: Remove suppressHydrationWarning */}
+		<html lang="en" suppressHydrationWarning>
 			<head />
 			<body
 				className={cn(
@@ -100,13 +100,13 @@ export default async function RootLayout({
 					fontSans.className
 				)}
 			>
-				<AuthProvider session={session}>
-					<ThemeProvider
-						attribute="class"
-						defaultTheme="system"
-						enableSystem
-						disableTransitionOnChange
-					>
+				<ThemeProvider
+					attribute="class"
+					defaultTheme="system"
+					enableSystem
+					disableTransitionOnChange
+				>
+					<AuthProvider session={session}>
 						<div vaul-drawer-wrapper="">
 							<div className="relative flex min-h-screen flex-col bg-background">
 								<SiteHeader session={session} />
@@ -117,8 +117,8 @@ export default async function RootLayout({
 						<TailwindIndicator />
 						<Analytics />
 						<DefaultToaster />
-					</ThemeProvider>
-				</AuthProvider>
+					</AuthProvider>
+				</ThemeProvider>
 			</body>
 		</html>
 	);

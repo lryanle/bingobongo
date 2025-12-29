@@ -3,5 +3,6 @@ module.exports = {
   // Tailwind v4 uses CSS-based configuration via @theme in globals.css
   // This file is kept for compatibility with tailwindcss-animate plugin
   // Most configuration has been moved to app/globals.css using @theme directive
+  darkMode: ["class"],
   plugins: [require("tailwindcss-animate")],
 }

@@ -114,7 +114,7 @@ const formSchema = z.object({
 
 export interface CreateBingoProps {
   partyleader: string;
-  leaderid: string;
+  leaderid: string | undefined;
 }
 
 export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps) {
@@ -224,6 +224,8 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    if (!leaderid) return; // Guard against undefined leaderid
+    
     const roomData = {
       roomName: values.roomName,
       roomPassword: values.roomPassword,
