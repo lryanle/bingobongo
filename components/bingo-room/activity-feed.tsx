@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Trophy, Users, User } from "lucide-react";
@@ -56,9 +56,12 @@ export default function ActivityFeed({
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Sort activities by createdAt (oldest first, newest last - for bottom display)
-  const sortedActivities = [...activities].sort((a, b) => 
-    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-  );
+  // Memoize to prevent creating new array on every render
+  const sortedActivities = useMemo(() => {
+    return [...activities].sort((a, b) => 
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+  }, [activities]);
   
   // Check if user is near the bottom of the scroll container
   const isNearBottom = () => {

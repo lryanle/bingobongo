@@ -660,6 +660,14 @@ export default function BingoRoom({
         .catch((err) => console.error("Error fetching activities:", err));
     });
 
+    // Listen for bingo items updated events
+    channel.bind("bingo-items-updated", (data: {
+      bingoItems: string[];
+    }) => {
+      // Update bingo items state when room owner updates them
+      setBingoItems(data.bingoItems);
+    });
+
     channel.bind("room-deleted", (data: { roomId: string }) => {
       // Redirect all users to bingo page when room is deleted
       globalThis.location.href = "/bingo";

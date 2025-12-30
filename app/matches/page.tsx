@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Users, Activity, Trophy, XCircle, Clock, Play, Crown } from "lucide-react";
 import { db } from "@/lib/db";
-import { getGridSize, checkBingoWin } from "@/lib/bingo-utils";
+import { getGridSize, checkTeamBingoWin } from "@/lib/bingo-utils";
 
 type MatchStatus = "not_started" | "in_progress" | "finished_won" | "finished_lost" | "cancelled";
 
@@ -42,7 +42,7 @@ function getMatchStatus(
   activities: Array<{ action: string; teamIndex?: number; createdAt: Date }>,
   gameMode: string,
   boardSize: number,
-  room: { gameFinished?: boolean; winningTeam?: number },
+  room: { gameFinished?: boolean; winningTeam?: number; claimedItems?: Array<{ cellIndex: number; teamIndex: number }> },
   currentUserId?: string
 ): { status: MatchStatus; winningTeam?: number } {
   // Check if all players disconnected for more than 1 hour
@@ -87,28 +87,30 @@ function getMatchStatus(
     }
   }
 
-  // Check for classic bingo wins by analyzing marked items
+  // Check for classic bingo wins by analyzing claimed items (classic mode uses team-based claiming)
   if (gameMode.includes("classic")) {
     const gridSize = getGridSize(boardSize);
     // Extract required bingos from gameMode (e.g., "classic-3" means 3 bingos required)
     const modeMatch = /classic-(\d+)/.exec(gameMode);
     const requiredBingos = modeMatch ? Number.parseInt(modeMatch[1], 10) : 1;
 
-    // Check each team for wins
-    const teamWins = new Map<number, boolean>();
+    // Get unique team indices from players
+    const teamIndices = new Set<number>();
     players.forEach((player) => {
       if (player.teamIndex !== undefined) {
-        const hasWon = checkBingoWin(player.markedItems, gridSize, requiredBingos);
-        if (hasWon && !teamWins.has(player.teamIndex)) {
-          teamWins.set(player.teamIndex, true);
-        }
+        teamIndices.add(player.teamIndex);
       }
     });
 
-    if (teamWins.size > 0) {
-      // Game finished - first team to win
-      const winningTeam = Array.from(teamWins.keys())[0];
-      return { status: "finished_won", winningTeam };
+    // Check each team for wins using claimedItems (classic mode uses team-based claiming, not player markedItems)
+    const claimedItems = room.claimedItems || [];
+    const teamIndicesArray = Array.from(teamIndices);
+    for (const teamIndex of teamIndicesArray) {
+      const winCheck = checkTeamBingoWin(claimedItems, teamIndex, gridSize, requiredBingos);
+      if (winCheck.hasWon) {
+        // Game finished - first team to win
+        return { status: "finished_won", winningTeam: teamIndex };
+      }
     }
   }
 
@@ -178,6 +180,7 @@ async function getMatches(currentUserId: string, session?: { user?: { id: string
         {
           gameFinished: room.gameFinished,
           winningTeam: room.winningTeam,
+          claimedItems: room.claimedItems || [],
         },
         currentUserId
       );

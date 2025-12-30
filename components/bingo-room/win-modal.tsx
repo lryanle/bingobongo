@@ -74,7 +74,7 @@ export default function WinModal({
       }, 1000);
       return () => clearInterval(interval);
     }
-  }, [scheduledAt]); // Only depend on scheduledAt - localCountdown updates don't need to trigger re-run
+  }, [scheduledAt]); // Only depend on scheduledAt - localCountdown updates inside the interval don't need to trigger re-runs
 
   const majority = Math.ceil(playerCount / 2);
   const voteProgress = playerCount > 0 ? (votes / playerCount) * 100 : 0;
