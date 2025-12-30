@@ -107,7 +107,7 @@ export const base64ToBytes = (base64: string): Uint8Array => {
 }
 
 export const bytesToBase64 = (bytes: Uint8Array): string => {
-  const binString = String.fromCodePoint(...bytes);
+  const binString = String.fromCodePoint(...Array.from(bytes));
   return btoa(binString);
 }
 
