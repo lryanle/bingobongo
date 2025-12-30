@@ -1,3 +1,5 @@
+"use client";
+
 import BingoCell from "./bingocell";
 
 export interface BingoCardProps {

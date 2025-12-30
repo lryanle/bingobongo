@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { X, RotateCcw, Settings, Users } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
@@ -17,6 +18,7 @@ interface WinModalProps {
   playerCount: number;
   votes: number;
   countdown?: number;
+  scheduledAt?: string;
   onVote: () => void;
   onInstantRestart: () => void;
   onChangeGameMode: () => void;
@@ -32,13 +34,47 @@ export default function WinModal({
   playerCount,
   votes,
   countdown,
+  scheduledAt,
   onVote,
   onInstantRestart,
   onChangeGameMode,
   hasVoted,
 }: WinModalProps) {
-  // Use server countdown directly, don't maintain local state
-  // The server broadcasts countdown updates every second
+  const [localCountdown, setLocalCountdown] = useState<number | undefined>(countdown);
+
+  // Update countdown from props
+  useEffect(() => {
+    setLocalCountdown(countdown);
+  }, [countdown]);
+
+  // Calculate countdown from scheduled time if available
+  useEffect(() => {
+    if (scheduledAt && !countdown) {
+      const updateCountdown = () => {
+        const now = Date.now();
+        const scheduled = new Date(scheduledAt).getTime();
+        const remaining = Math.max(0, Math.ceil((scheduled - now) / 1000));
+        setLocalCountdown(remaining);
+      };
+      
+      updateCountdown();
+      const interval = setInterval(updateCountdown, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [scheduledAt, countdown]);
+
+  // Client-side countdown if we have an initial countdown
+  useEffect(() => {
+    if (localCountdown !== undefined && localCountdown > 0 && !scheduledAt) {
+      const interval = setInterval(() => {
+        setLocalCountdown((prev) => {
+          if (prev === undefined || prev <= 1) return 0;
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [localCountdown, scheduledAt]);
 
   const majority = Math.ceil(playerCount / 2);
   const voteProgress = playerCount > 0 ? (votes / playerCount) * 100 : 0;
@@ -108,10 +144,10 @@ export default function WinModal({
               </div>
             )}
 
-            {countdown !== undefined && countdown > 0 && (
+            {localCountdown !== undefined && localCountdown > 0 && (
               <div className="mt-4 text-center">
                 <p className="text-lg font-semibold">
-                  Restarting in {countdown} second{countdown !== 1 ? 's' : ''}...
+                  Restarting in {localCountdown} second{localCountdown !== 1 ? 's' : ''}...
                 </p>
               </div>
             )}
@@ -124,7 +160,7 @@ export default function WinModal({
                 onClick={onInstantRestart}
                 className="w-full"
                 variant="default"
-                disabled={countdown !== undefined && countdown <= 5}
+                disabled={localCountdown !== undefined && localCountdown <= 5}
               >
                 <RotateCcw className="mr-2 h-4 w-4" />
                 Instant Restart (5s countdown)

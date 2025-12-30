@@ -245,7 +245,7 @@ function getStatusBadge(status: Match["status"]) {
       );
     case "finished_lost":
       return (
-        <Badge variant="destructive">
+        <Badge variant="default" className="bg-red-500">
           <XCircle className="w-3 h-3 mr-1" />
           Lost
         </Badge>

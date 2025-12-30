@@ -144,10 +144,14 @@ export default async function MatchPreviewPage({ params }: PageProps) {
     player.marked_items.forEach((index) => allMarkedItems.add(index));
   });
 
-  const previewBingoData = bingoData.map((cell, index) => ({
-    ...cell,
-    disabled: allMarkedItems.has(index),
-  }));
+  // Remove onClick handlers for preview (read-only)
+  const previewBingoData = bingoData.map((cell, index) => {
+    const { onClick, ...cellWithoutOnClick } = cell;
+    return {
+      ...cellWithoutOnClick,
+      disabled: allMarkedItems.has(index),
+    };
+  });
 
   // Calculate team stats
   const teamStats = teams.map((team, index) => {

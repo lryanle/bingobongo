@@ -81,6 +81,8 @@ export default function BingoRoom({
   const [showWinModal, setShowWinModal] = useState(initialRoom.gameFinished || false);
   const [restartVotes, setRestartVotes] = useState<number>(initialRoom.restartVotes?.length || 0);
   const [restartCountdown, setRestartCountdown] = useState<number | undefined>(initialRoom.restartCountdown);
+  const [restartScheduledAt, setRestartScheduledAt] = useState<string | undefined>(undefined);
+  const [bingoItems, setBingoItems] = useState<string[]>(initialRoom.bingoItems || []);
   const [hasVoted, setHasVoted] = useState(
     initialRoom.restartVotes?.includes(session.data?.user?.id || "") || false
   );
@@ -113,7 +115,7 @@ export default function BingoRoom({
     initialRoom.bingoSeed,
     gridSize,
     teams,
-    initialRoom.bingoItems // Use stored items (empty strings if not provided)
+    bingoItems // Use stored items (empty strings if not provided)
   );
 
   // Check if this is lockout mode
@@ -132,29 +134,35 @@ export default function BingoRoom({
       const isWinning = isWinningCell(index);
       const winningTeamData = winningTeam !== undefined ? teams[winningTeam] : undefined;
       
-      // Add team circle to slot items if claimed
-      // When claimed, replace original slot items with the team circle
+      // Add team circles to slot items for all teams that claimed this cell
+      // Multiple teams can claim the same cell
       let updatedSlotItems = cell.slotItems || [];
-      if (claimedItem && claimedTeam) {
-        // Replace slot items with the team circle when claimed
-        updatedSlotItems = [
-          {
-            color: claimedTeam.color,
-            number: claimedItem.teamIndex + 1, // Team number (1-indexed)
-          },
-        ];
+      const allClaimsForCell = claimedItems.filter((item) => item.cellIndex === index);
+      if (allClaimsForCell.length > 0) {
+        // Add a team circle for each team that claimed this cell
+        updatedSlotItems = allClaimsForCell.map((claim) => {
+          const team = teams[claim.teamIndex];
+          return {
+            color: team?.color || "#6b7280",
+            number: claim.teamIndex + 1, // Team number (1-indexed)
+          };
+        });
       }
+      
+      // Use the first claim for claimedBy (for tooltip/display purposes)
+      const firstClaim = allClaimsForCell[0];
+      const firstClaimedTeam = firstClaim ? teams[firstClaim.teamIndex] : undefined;
       
       return {
         ...cell,
         slotItems: updatedSlotItems,
         disabled: isLockout ? markedItems.includes(index) : false, // Only disable in lockout mode
-        claimedBy: claimedItem ? {
-          teamIndex: claimedItem.teamIndex,
-          teamColor: claimedTeam?.color || "#6b7280",
-          claimedAt: typeof claimedItem.claimedAt === 'string' 
-            ? new Date(claimedItem.claimedAt) 
-            : claimedItem.claimedAt,
+        claimedBy: firstClaim ? {
+          teamIndex: firstClaim.teamIndex,
+          teamColor: firstClaimedTeam?.color || "#6b7280",
+          claimedAt: typeof firstClaim.claimedAt === 'string' 
+            ? new Date(firstClaim.claimedAt) 
+            : firstClaim.claimedAt,
         } : undefined,
         isWinning: isWinning && winningTeamData ? {
           teamColor: winningTeamData.color,
@@ -439,11 +447,12 @@ export default function BingoRoom({
       }
       
       // Update claimed items for other users' actions
+      // Support multiple teams claiming the same cell
       setClaimedItems((prev) => {
         if (data.claimed) {
-          // Add or update claim
+          // Add claim for this team (multiple teams can claim same cell)
           return [
-            ...prev.filter((item) => item.cellIndex !== data.cellIndex),
+            ...prev,
             {
               cellIndex: data.cellIndex,
               teamIndex: data.teamIndex,
@@ -452,8 +461,10 @@ export default function BingoRoom({
             },
           ];
         } else {
-          // Remove claim
-          return prev.filter((item) => item.cellIndex !== data.cellIndex);
+          // Remove all claims for this team on this cell
+          return prev.filter(
+            (item) => !(item.cellIndex === data.cellIndex && item.teamIndex === data.teamIndex)
+          );
         }
       });
       
@@ -537,6 +548,7 @@ export default function BingoRoom({
       setHasVoted(false);
       setRestartVotes(0);
       setRestartCountdown(undefined);
+      setRestartScheduledAt(undefined);
       // Hide confetti after 5 seconds
       setTimeout(() => setShowConfetti(false), 5000);
     });
@@ -554,6 +566,9 @@ export default function BingoRoom({
       if (data.countdown !== undefined) {
         setRestartCountdown(data.countdown);
       }
+      if (data.restartScheduled) {
+        setRestartScheduledAt(data.restartScheduled);
+      }
     });
 
     // Listen for restart scheduled events
@@ -563,6 +578,7 @@ export default function BingoRoom({
       instant?: boolean;
     }) => {
       setRestartCountdown(data.countdown);
+      setRestartScheduledAt(data.scheduledAt);
     });
 
     // Listen for restart countdown updates
@@ -582,6 +598,7 @@ export default function BingoRoom({
       setShowWinModal(false);
       setRestartVotes(0);
       setRestartCountdown(undefined);
+      setRestartScheduledAt(undefined);
       setHasVoted(false);
       // Refresh room data
       fetch(`/api/rooms/${roomId}`)
@@ -660,14 +677,19 @@ export default function BingoRoom({
     
     // For non-lockout modes, use team-based claiming
     if (!isLockout) {
-      const currentClaim = claimedItems.find((item) => item.cellIndex === index);
-      const isClaimedByMyTeam = currentClaim && currentClaim.teamIndex === currentPlayer.teamIndex;
+      // Check if my team already claimed this cell (support multiple teams)
+      const myTeamClaims = claimedItems.filter(
+        (item) => item.cellIndex === index && item.teamIndex === currentPlayer.teamIndex
+      );
+      const isClaimedByMyTeam = myTeamClaims.length > 0;
       
       // Optimistically update claimed items
       const optimisticClaimedItems = isClaimedByMyTeam
-        ? claimedItems.filter((item) => item.cellIndex !== index)
+        ? claimedItems.filter(
+            (item) => !(item.cellIndex === index && item.teamIndex === currentPlayer.teamIndex)
+          )
         : [
-            ...claimedItems.filter((item) => item.cellIndex !== index),
+            ...claimedItems,
             {
               cellIndex: index,
               teamIndex: currentPlayer.teamIndex,
@@ -718,6 +740,7 @@ export default function BingoRoom({
               setHasVoted(false);
               setRestartVotes(0);
               setRestartCountdown(undefined);
+              setRestartScheduledAt(undefined);
               // Hide confetti after 5 seconds
               setTimeout(() => setShowConfetti(false), 5000);
             }
@@ -884,6 +907,38 @@ export default function BingoRoom({
     }
   };
 
+  // Handle kick player
+  const handleKickPlayer = async (userId: string) => {
+    try {
+      const response = await fetch(`/api/rooms/${roomId}/kick`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId }),
+      });
+
+      if (response.ok) {
+        // Refresh players list
+        fetch(`/api/rooms/${roomId}/players`)
+          .then((res) => {
+            if (!res.ok) {
+              throw new Error(`Failed to fetch players: ${res.status}`);
+            }
+            return res.json();
+          })
+          .then((newPlayers) => setPlayers(newPlayers))
+          .catch((err) => console.error("Error fetching players:", err));
+      } else {
+        const error = await response.json();
+        alert(error.error || "Failed to kick player");
+      }
+    } catch (error) {
+      console.error("Error kicking player:", error);
+      alert("Failed to kick player. Please try again.");
+    }
+  };
+
   // Handle vote for restart
   const handleVote = async () => {
     try {
@@ -977,6 +1032,7 @@ export default function BingoRoom({
           playerCount={players.length}
           votes={restartVotes}
           countdown={restartCountdown}
+          scheduledAt={restartScheduledAt}
           onVote={handleVote}
           onInstantRestart={handleInstantRestart}
           onChangeGameMode={handleChangeGameMode}
@@ -1008,6 +1064,7 @@ export default function BingoRoom({
             currentUserId={session.data?.user?.id}
             selectedTeam={selectedTeam}
             onTeamSelect={handleTeamSelect}
+            onKickPlayer={isOwner ? handleKickPlayer : undefined}
           />
         </div>
         
@@ -1040,6 +1097,11 @@ export default function BingoRoom({
           }}
           onReset={() => {
             // Reset will be handled by the board-reset Pusher event
+          }}
+          initialBingoItems={bingoItems}
+          onBingoItemsUpdate={(items: string[]) => {
+            // Update bingo items state
+            setBingoItems(items);
           }}
         />
         </div>

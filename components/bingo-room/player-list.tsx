@@ -1,9 +1,11 @@
 "use client";
 
-import { Crown, Coins } from "lucide-react";
+import { Crown, Coins, User, LogOut, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
 
 interface Player {
   id: string;
@@ -23,9 +25,10 @@ interface PlayerListProps {
   readonly currentUserId?: string;
   readonly selectedTeam?: number;
   readonly onTeamSelect?: (teamIndex: number) => void;
+  readonly onKickPlayer?: (userId: string) => void;
 }
 
-export default function PlayerList({ players, ownerId, teams, currentUserId, selectedTeam, onTeamSelect }: PlayerListProps) {
+export default function PlayerList({ players, ownerId, teams, currentUserId, selectedTeam, onTeamSelect, onKickPlayer }: PlayerListProps) {
   const getTeamColor = (teamIndex?: number) => {
     if (!teams || !Array.isArray(teams) || teams.length === 0) {
       return "#6b7280"; // gray
@@ -103,44 +106,121 @@ export default function PlayerList({ players, ownerId, teams, currentUserId, sel
             </div>
           );
 
-          // If this is the current user, wrap in popover for team selection
-          if (isUser && onTeamSelect) {
-            return (
-              <Popover key={player.id}>
-                <PopoverTrigger asChild>
-                  {playerRow}
-                </PopoverTrigger>
-                <PopoverContent className="w-56">
-                  <div className="flex flex-col gap-2">
-                    <h4 className="text-foreground font-semibold text-sm">Select Team</h4>
-                    <div className="flex flex-col gap-2">
-                      {teams.map((team, index) => {
-                        const isSelected = selectedTeam === index;
-                        const textColor = getContrastColor(team.color);
-                        
-                        return (
-                          <Button
-                            key={`${team.name}-${team.color}`}
-                            onClick={() => onTeamSelect(index)}
-                            className="w-full justify-start transition-all"
-                            style={{
-                              backgroundColor: isSelected ? team.color : `${team.color}80`,
-                              color: textColor,
-                              border: isSelected ? `2px solid ${team.color}` : "1px solid transparent",
-                            }}
-                          >
-                            {team.name}
-                          </Button>
-                        );
-                      })}
+          // Wrap all players in popover for profile view
+          return (
+            <Popover key={player.id}>
+              <PopoverTrigger asChild>
+                <div className="cursor-pointer">{playerRow}</div>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                <div className="flex flex-col gap-4">
+                  {/* Profile Header */}
+                  <div className="flex items-center gap-3">
+                    <Avatar className="w-16 h-16">
+                      <AvatarImage src={player.userImage} alt={player.userName} />
+                      <AvatarFallback className="text-lg">
+                        {player.userName.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-foreground font-semibold text-base truncate">
+                          {player.userName}
+                        </h4>
+                        {isOwner && (
+                          <Crown className="w-4 h-4 text-yellow-500 fill-yellow-500 shrink-0" />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div
+                          className="w-4 h-4 rounded-full shrink-0"
+                          style={{ backgroundColor: teamColor }}
+                        />
+                        <span className="text-sm text-muted-foreground truncate">
+                          {teams[player.teamIndex ?? 0]?.name || "No Team"}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </PopoverContent>
-              </Popover>
-            );
-          }
 
-          return <div key={player.id}>{playerRow}</div>;
+                  <Separator />
+
+                  {/* Stats */}
+                  <div className="space-y-2">
+                    <h5 className="text-sm font-semibold text-foreground">Stats</h5>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                        <Coins className="w-4 h-4 text-muted-foreground" />
+                        <div>
+                          <div className="text-xs text-muted-foreground">Items Marked</div>
+                          <div className="text-sm font-semibold">{points}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                        <Users className="w-4 h-4 text-muted-foreground" />
+                        <div>
+                          <div className="text-xs text-muted-foreground">Team</div>
+                          <div className="text-sm font-semibold">#{teamNumber}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  {isUser && onTeamSelect && (
+                    <>
+                      <Separator />
+                      <div className="space-y-2">
+                        <h5 className="text-sm font-semibold text-foreground">Switch Team</h5>
+                        <div className="flex flex-col gap-2">
+                          {teams.map((team, index) => {
+                            const isSelected = selectedTeam === index;
+                            const textColor = getContrastColor(team.color);
+                            
+                            return (
+                              <Button
+                                key={`${team.name}-${team.color}`}
+                                onClick={() => onTeamSelect(index)}
+                                className="w-full justify-start transition-all"
+                                variant={isSelected ? "default" : "outline"}
+                                style={{
+                                  backgroundColor: isSelected ? team.color : undefined,
+                                  color: isSelected ? textColor : undefined,
+                                  border: isSelected ? `2px solid ${team.color}` : undefined,
+                                }}
+                              >
+                                <div
+                                  className="w-3 h-3 rounded-full mr-2"
+                                  style={{ backgroundColor: team.color }}
+                                />
+                                {team.name}
+                                {isSelected && " ✓"}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Kick Button (Owner only, not for self) */}
+                  {isOwner && ownerId === currentUserId && !isUser && onKickPlayer && (
+                    <>
+                      <Separator />
+                      <Button
+                        onClick={() => onKickPlayer(player.userId)}
+                        variant="destructive"
+                        className="w-full"
+                      >
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Kick Player
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          );
         })}
         {players.length === 0 && (
           <p className="text-muted-foreground text-sm">No players yet</p>

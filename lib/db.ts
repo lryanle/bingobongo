@@ -288,11 +288,16 @@ export const rooms = {
     }
 
     const claimedItems = room.claimedItems || [];
-    const existingClaim = claimedItems.find((item) => item.cellIndex === cellIndex);
+    // Find all claims for this cell by this team
+    const existingTeamClaims = claimedItems.filter(
+      (item) => item.cellIndex === cellIndex && item.teamIndex === teamIndex
+    );
     
-    // If same team claims, unclaim it
-    if (existingClaim && existingClaim.teamIndex === teamIndex) {
-      const updatedItems = claimedItems.filter((item) => item.cellIndex !== cellIndex);
+    // If same team already claimed, unclaim it (toggle)
+    if (existingTeamClaims.length > 0) {
+      const updatedItems = claimedItems.filter(
+        (item) => !(item.cellIndex === cellIndex && item.teamIndex === teamIndex)
+      );
       await collection.updateOne(
         { _id: toObjectId(roomId) },
         { $set: { claimedItems: updatedItems, last_updated: new Date() } }
@@ -300,9 +305,9 @@ export const rooms = {
       return { claimed: false, previousTeam: teamIndex };
     }
     
-    // If different team or unclaimed, claim it for this team
+    // Add claim for this team (multiple teams can claim the same cell)
     const updatedItems = [
-      ...claimedItems.filter((item) => item.cellIndex !== cellIndex),
+      ...claimedItems,
       {
         cellIndex,
         teamIndex,
@@ -316,7 +321,7 @@ export const rooms = {
       { $set: { claimedItems: updatedItems, last_updated: new Date() } }
     );
     
-    return { claimed: true, previousTeam: existingClaim?.teamIndex };
+    return { claimed: true };
   },
 };
 

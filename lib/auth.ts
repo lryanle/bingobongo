@@ -45,4 +45,3 @@ export const auth = {
 };
 
 export type Session = Awaited<ReturnType<typeof getAuth>>["$Infer"]["Session"];
-

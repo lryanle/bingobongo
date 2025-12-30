@@ -29,7 +29,7 @@ export async function POST(
     const existingPlayer = await db.player.findByRoomAndUserId(roomId, session.user.id);
     
     // Get user info from Better Auth session (users are stored by Better Auth)
-    // Better Auth stores users in the 'user' collection, but we need to ensure the user exists
+    // Better Auth stores users in the 'Users' collection (capitalized)
     let userName = session.user.name || "Unknown";
     let userImage = session.user.image || "";
     
@@ -39,10 +39,26 @@ export async function POST(
       if (user) {
         userName = user.name || userName;
         userImage = user.image || userImage;
+      } else {
+        // User doesn't exist in database yet - create it from session data
+        // Better Auth should create users automatically, but if it doesn't, we'll create a minimal record
+        try {
+          await db.user.create({
+            _id: session.user.id as any,
+            name: session.user.name || null,
+            email: session.user.email || null,
+            image: session.user.image || null,
+          });
+          userName = session.user.name || "Unknown";
+          userImage = session.user.image || "";
+        } catch (createError) {
+          // User might already exist or creation failed, use session data
+          console.log("Could not create user record, using session data", createError instanceof Error ? createError.message : String(createError));
+        }
       }
     } catch (error) {
-      // User might not exist in database yet, use session data
-      console.log("User not found in database, using session data", error instanceof Error ? error.message : String(error));
+      // User lookup failed, use session data
+      console.log("User lookup failed, using session data", error instanceof Error ? error.message : String(error));
     }
     
     if (existingPlayer) {

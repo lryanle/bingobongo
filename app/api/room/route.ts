@@ -2,6 +2,7 @@ import { getAuth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { getGridSize } from "@/lib/bingo-utils";
+import { NextResponse } from "next/server";
 
 // This is a hypothetical API route function
 export async function POST(request: Request) {
@@ -54,14 +55,21 @@ export async function POST(request: Request) {
             const requiredItems = gridSize * gridSize;
             
             // Get bingo items from room data
+            // User requirement: There will always be enough items to fill the board
             const providedItems = roomData.bingoItems || [];
+            
+            // Validate that we have enough items (filter out empty strings for validation)
+            const validItems = providedItems.filter((item: string) => item && item.trim() !== "");
+            if (validItems.length < requiredItems) {
+              return NextResponse.json(
+                { error: `Not enough bingo items provided. Need at least ${requiredItems} items, but only ${validItems.length} valid items were provided.` },
+                { status: 400 }
+              );
+            }
             
             // Randomly select items if more than needed, using bingo seed for randomness
             let selectedItems: string[] = [];
-            if (providedItems.length === 0) {
-              // No items provided - use empty strings
-              selectedItems = Array(requiredItems).fill("");
-            } else if (providedItems.length === requiredItems) {
+            if (providedItems.length === requiredItems) {
               // Exact amount - use all items
               selectedItems = [...providedItems];
             } else if (providedItems.length > requiredItems) {
@@ -69,7 +77,7 @@ export async function POST(request: Request) {
               const seed = roomData.bingoSeed;
               let hash = 0;
               for (let i = 0; i < seed.length; i++) {
-                const char = seed.charCodeAt(i);
+                const char = seed.codePointAt(i) || 0;
                 hash = ((hash << 5) - hash) + char;
                 hash = hash & hash;
               }
@@ -79,12 +87,15 @@ export async function POST(request: Request) {
                 return state / 233280;
               };
               
-              // Shuffle and select
+              // Shuffle and select exactly requiredItems
               const shuffled = [...providedItems].sort(() => random() - 0.5);
               selectedItems = shuffled.slice(0, requiredItems);
             } else {
-              // Less than needed - pad with empty strings
-              selectedItems = [...providedItems, ...Array(requiredItems - providedItems.length).fill("")];
+              // This should never happen due to validation above, but handle gracefully
+              return NextResponse.json(
+                { error: `Not enough bingo items provided. Need ${requiredItems} items, but only ${providedItems.length} were provided.` },
+                { status: 400 }
+              );
             }
             
             const roomObj = await db.room.create({

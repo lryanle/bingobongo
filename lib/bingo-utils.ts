@@ -6,7 +6,7 @@ import type { BingoCardProps } from "@/components/bingo-card/bingocard";
 function seededRandom(seed: string): () => number {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
-    const char = seed.charCodeAt(i);
+    const char = seed.codePointAt(i) || 0;
     hash = ((hash << 5) - hash) + char;
     hash = hash & hash; // Convert to 32bit integer
   }
@@ -30,40 +30,28 @@ export function generateBingoData(
   const totalCells = size * size;
   const data: BingoCardProps["bingoData"] = [];
   
-  // Use provided item titles, or generate default titles if not provided
-  let titles: string[];
+  // Use provided item titles - there should always be enough items provided
+  // No fallback to defaults - items must be provided
+  let titles: string[] = [];
   
-  // Check if we have any non-empty items provided
-  const hasNonEmptyItems = itemTitles && itemTitles.length > 0 && itemTitles.some(item => item && item.trim() !== "");
-  
-  if (hasNonEmptyItems) {
-    // Use provided items - they should already be randomly selected to match grid size
+  if (itemTitles && itemTitles.length > 0) {
+    // Use provided items directly - they should already match grid size exactly
+    // If more items than needed, use only the first totalCells
+    // If fewer items than needed, this should never happen per user requirement
     titles = [...itemTitles];
-    // Only replace empty strings with default titles if we have some non-empty items
-    // This allows users to have some empty cells if they want
-    const defaultTitles = Array.from({ length: 100 }, (_, i) => `Bingo Title Card ${i + 1}`);
-    titles = titles.map((title) => {
-      if (!title || title.trim() === "") {
-        const titleIndex = Math.floor(random() * defaultTitles.length);
-        return defaultTitles[titleIndex];
-      }
-      return title;
-    });
-    // Ensure we have enough titles (pad with default if needed)
-    while (titles.length < totalCells) {
-      const titleIndex = Math.floor(random() * defaultTitles.length);
-      titles.push(defaultTitles[titleIndex]);
+    
+    // Ensure we have exactly totalCells items
+    if (titles.length < totalCells) {
+      // This should never happen - user requirement states there will always be enough items
+      // But handle gracefully by padding with empty strings
+      titles = [...titles, ...new Array(totalCells - titles.length).fill("")];
+    } else if (titles.length > totalCells) {
+      // Use only the first totalCells items
+      titles = titles.slice(0, totalCells);
     }
-    // If we have more titles than needed, use only the first totalCells
-    titles = titles.slice(0, totalCells);
   } else {
-    // No valid items provided - use default titles
-    const defaultTitles = Array.from({ length: 100 }, (_, i) => `Bingo Title Card ${i + 1}`);
-    titles = [];
-    for (let i = 0; i < totalCells; i++) {
-      const titleIndex = Math.floor(random() * defaultTitles.length);
-      titles.push(defaultTitles[titleIndex]);
-    }
+    // No items provided - fill with empty strings (should not happen per user requirement)
+    titles = new Array(totalCells).fill("");
   }
   
   for (let i = 0; i < totalCells; i++) {

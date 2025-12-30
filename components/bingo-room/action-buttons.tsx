@@ -12,6 +12,8 @@ interface ActionButtonsProps {
   readonly onLeave: () => void;
   readonly onDeleteRoom?: () => void;
   readonly onReset?: () => void;
+  readonly initialBingoItems?: string[];
+  readonly onBingoItemsUpdate?: (items: string[]) => void;
 }
 
 export default function ActionButtons({
@@ -20,6 +22,8 @@ export default function ActionButtons({
   onLeave,
   onDeleteRoom,
   onReset,
+  initialBingoItems = [],
+  onBingoItemsUpdate,
 }: ActionButtonsProps) {
   const router = useRouter();
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -49,7 +53,7 @@ export default function ActionButtons({
     if (onDeleteRoom) {
       onDeleteRoom();
     }
-    router.push("/bingo");
+    router.push("/bingo/create");
   };
 
   return (
@@ -82,6 +86,8 @@ export default function ActionButtons({
           onOpenChange={setSettingsOpen}
           onDelete={handleDeleteRoom}
           onReset={onReset}
+          initialBingoItems={initialBingoItems}
+          onBingoItemsUpdate={onBingoItemsUpdate}
         />
       )}
     </>

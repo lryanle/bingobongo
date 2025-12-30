@@ -168,20 +168,27 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
   
         form.setValue("importBingoData", data);
       } else {
-        const pattern = `(${sanitize(delimiter)})(?=(?:(?:[^"']|"(?:[^"\\\\]|\\\\.)*"|'(?:[^'\\\\]|\\\\.)*')*$))`;
-      const regex = new RegExp(pattern, 'g');
-  
-      const data = importText.split(regex).reduce((acc: string[], item) => {
-
-        acc.push(item.trim().replace(/^['"`](.*)['"`]$/, '$1'));
+        let data: string[] = [];
         
-        return acc;
-      }, []);
-  
-      setParsedData(data.filter(str => str !== "" && str !== " " && str.trim() !== delimiter.trim()));
-      setImportTab("viewData");
-  
-      form.setValue("importBingoData", data.filter(str => str !== "" && str !== " " && str.trim() !== delimiter.trim()));
+        // Handle newline delimiter specially
+        if (delimiter === "\\n" || delimiter === "\n") {
+          // Split by newlines and filter out empty lines
+          data = importText.split(/\r?\n/)
+            .map(item => item.trim().replace(/^['"`](.*)['"`]$/, '$1'))
+            .filter(str => str !== "" && str.trim() !== "");
+        } else {
+          // Use regex for other delimiters
+          const pattern = `(${sanitize(delimiter)})(?=(?:(?:[^"']|"(?:[^"\\\\]|\\\\.)*"|'(?:[^'\\\\]|\\\\.)*')*$))`;
+          const regex = new RegExp(pattern, 'g');
+          
+          data = importText.split(regex)
+            .map(item => item.trim().replace(/^['"`](.*)['"`]$/, '$1'))
+            .filter(str => str !== "" && str !== " " && str.trim() !== delimiter.trim());
+        }
+
+        setParsedData(data);
+        setImportTab("viewData");
+        form.setValue("importBingoData", data);
       }
     } catch (e) {
       console.error("Error parsing data:", e);
@@ -304,9 +311,12 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
     // Get bingo items from form
     const bingoItems = values.importBingoData || [];
     
+    // Filter out empty strings for validation (matching server-side validation)
+    const validItems = bingoItems.filter((item: string) => item && item.trim() !== "");
+    
     // Validate minimum items
-    if (bingoItems.length < minItems) {
-      alert(`Please provide at least ${minItems} bingo items (current: ${bingoItems.length}). The board size ${gridSize}x${gridSize} requires ${minItems} items.`);
+    if (validItems.length < minItems) {
+      alert(`Please provide at least ${minItems} bingo items (current: ${validItems.length} valid items out of ${bingoItems.length} total). The board size ${gridSize}x${gridSize} requires ${minItems} items.`);
       setIsSubmitting(false);
       return;
     }
@@ -339,6 +349,24 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
     
     setIsSubmitting(true);
     
+    // Calculate minimum items needed based on board size
+    const boardSizeValue = pendingRoomData.boardSize[0];
+    const gridSize = boardSizeValue === 0 ? 5 : boardSizeValue === 50 ? 7 : 10;
+    const minItems = gridSize * gridSize;
+    
+    // Get bingo items from pending room data
+    const bingoItems = pendingRoomData.importBingoData || [];
+    
+    // Filter out empty strings for validation (matching server-side validation)
+    const validItems = bingoItems.filter((item: string) => item && item.trim() !== "");
+    
+    // Validate minimum items
+    if (validItems.length < minItems) {
+      alert(`Please provide at least ${minItems} bingo items (current: ${validItems.length} valid items out of ${bingoItems.length} total). The board size ${gridSize}x${gridSize} requires ${minItems} items.`);
+      setIsSubmitting(false);
+      return;
+    }
+    
     const roomData = {
       roomName: pendingRoomData.roomName,
       roomPassword: pendingRoomData.roomPassword || undefined,
@@ -347,6 +375,7 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
       boardSize: pendingRoomData.boardSize,
       teams: pendingRoomData.teams,
       ownerId: leaderid,
+      bingoItems: bingoItems, // Include bingo items
     };
 
     try {
