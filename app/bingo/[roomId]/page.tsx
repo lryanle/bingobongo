@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { AlertCircle } from 'lucide-react'
 import { getAuth } from '@/lib/auth'
 import { headers } from 'next/headers'
+import { BackButton } from '@/components/ui/back-button'
 
 interface PageProps {
   params: Promise<{
@@ -34,12 +35,9 @@ const page = async ({ params }: PageProps) => {
               Please check the URL and try again.
             </p>
           </div>
-          <Link 
-            href="/bingo" 
-            className="inline-block px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-          >
-            Return to Bingo
-          </Link>
+          <BackButton className="inline-block px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors">
+            Return to Previous Page
+          </BackButton>
         </div>
       </div>
     )

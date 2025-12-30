@@ -22,8 +22,14 @@ export interface BingoCardProps {
     isWinning?: {
       teamColor: string;
     };
+    myTeamClaim?: {
+      teamIndex: number;
+      teamColor: string;
+      claimedAt: Date;
+    };
   }>,
-  battleshipData?: Array<{position: [x: number, y: number], number: number}>
+  battleshipData?: Array<{position: [x: number, y: number], number: number}>,
+  currentUserTeamIndex?: number;
 }
 
 function getUniqueColors(bingoCardData: BingoCardProps["bingoData"]) {
@@ -38,7 +44,7 @@ function getUniqueColors(bingoCardData: BingoCardProps["bingoData"]) {
   return Array.from(colors).map(color => `bg-[${color}]`).join(" ");
 }
 
-export default function BingoCard({ modeName, lobbyName, mode, size, bingoData, battleshipData }: Readonly<BingoCardProps>) {
+export default function BingoCard({ modeName, lobbyName, mode, size, bingoData, battleshipData, currentUserTeamIndex }: Readonly<BingoCardProps>) {
   // Convert bingoData to a 2d array for easier rendering
   const bingoData2d = [];
   for (let i = 0; i < bingoData.length; i += size) {
@@ -48,8 +54,8 @@ export default function BingoCard({ modeName, lobbyName, mode, size, bingoData, 
 	return (
 		<div className="inline-flex flex-col p-5 justify-center items-center gap-2 rounded-3xl bg-card border border-border shadow">
 			<div className="flex py-3 px-0 flex-col items-center gap-1 self-stretch rounded-2xl bg-muted/50 backdrop-blur-xl">
-				<div className="flex justify-center items-start text-foreground text-center text-3xl font-semibold">{modeName}</div>
-        <div className="text-foreground font-normal text-xl">{lobbyName}</div>
+				<div className="flex justify-center items-start text-foreground text-center text-3xl font-semibold">{lobbyName}</div>
+        <div className="text-foreground font-normal text-xl">{modeName}</div>
 			</div>
 			<div className="flex flex-col items-center gap-2 self-stretch">
 
@@ -69,6 +75,8 @@ export default function BingoCard({ modeName, lobbyName, mode, size, bingoData, 
                 onClick={cell.onClick}
                 claimedBy={cell.claimedBy}
                 isWinning={cell.isWinning}
+                currentUserTeamIndex={currentUserTeamIndex}
+                myTeamClaim={cell.myTeamClaim}
               />
             ))}
           </div>

@@ -153,6 +153,13 @@ export default function BingoRoom({
       const firstClaim = allClaimsForCell[0];
       const firstClaimedTeam = firstClaim ? teams[firstClaim.teamIndex] : undefined;
       
+      // Find the current user's team claim (if any) for glow effect
+      const currentPlayer = players.find((p) => p.userId === session.data?.user?.id);
+      const myTeamClaim = currentPlayer?.teamIndex !== undefined
+        ? allClaimsForCell.find((claim) => claim.teamIndex === currentPlayer.teamIndex)
+        : undefined;
+      const myTeamClaimData = myTeamClaim ? teams[myTeamClaim.teamIndex] : undefined;
+      
       return {
         ...cell,
         slotItems: updatedSlotItems,
@@ -163,6 +170,13 @@ export default function BingoRoom({
           claimedAt: typeof firstClaim.claimedAt === 'string' 
             ? new Date(firstClaim.claimedAt) 
             : firstClaim.claimedAt,
+        } : undefined,
+        myTeamClaim: myTeamClaim && myTeamClaimData ? {
+          teamIndex: myTeamClaim.teamIndex,
+          teamColor: myTeamClaimData.color,
+          claimedAt: typeof myTeamClaim.claimedAt === 'string'
+            ? new Date(myTeamClaim.claimedAt)
+            : myTeamClaim.claimedAt,
         } : undefined,
         isWinning: isWinning && winningTeamData ? {
           teamColor: winningTeamData.color,
@@ -1052,7 +1066,7 @@ export default function BingoRoom({
   const winningTeamData = winningTeam !== undefined ? teams[winningTeam] : undefined;
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-background p-6 relative">
+    <div className="flex justify-center items-center md:my-16 bg-background p-6 relative">
       <Confetti show={showConfetti} teamColor={winningTeamData?.color} />
       
       {/* Backdrop blur when win modal is open */}
@@ -1093,6 +1107,7 @@ export default function BingoRoom({
             mode={initialRoom.gameMode.includes("battleship") ? "battleship" : "default"}
             size={gridSize}
             bingoData={updatedBingoData}
+            currentUserTeamIndex={selectedTeam}
           />
         </div>
 

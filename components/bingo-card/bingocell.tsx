@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/tooltip";
 
 const bingoCellVariants = cva(
-	"flex w-26 h-26 p-2 flex-col items-center justify-between gap-1 shrink-0 rounded-2xl shadow backdrop-blur-xl",
+	"flex w-26 h-26 p-2 flex-col items-center justify-between gap-1 shrink-0 rounded-2xl drop-shadow-xs border-2 backdrop-blur-xl",
 	{
 		variants: {
 			variant: {
@@ -53,6 +53,12 @@ export interface BingoCellProps extends VariantProps<typeof bingoCellVariants> {
 	readonly isWinning?: {
 		teamColor: string;
 	};
+	readonly currentUserTeamIndex?: number;
+	readonly myTeamClaim?: {
+		teamIndex: number;
+		teamColor: string;
+		claimedAt: Date;
+	};
 }
 
 function formatTimeAgo(date: Date): string {
@@ -64,13 +70,13 @@ function formatTimeAgo(date: Date): string {
 	const diffDays = Math.floor(diffHours / 24);
 
 	if (diffSecs < 60) {
-		return `${diffSecs} second${diffSecs !== 1 ? 's' : ''} ago`;
+		return `${diffSecs} second${diffSecs === 1 ? '' : 's'} ago`;
 	} else if (diffMins < 60) {
-		return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+		return `${diffMins} minute${diffMins === 1 ? '' : 's'} ago`;
 	} else if (diffHours < 24) {
-		return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+		return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
 	} else {
-		return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+		return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
 	}
 }
 
@@ -87,6 +93,8 @@ export default function BingoCell({
 	onClick,
 	claimedBy,
 	isWinning,
+	currentUserTeamIndex,
+	myTeamClaim,
 }: BingoCellProps) {
 	const displaySlotItems =
 		property === "slotted" &&
@@ -108,8 +116,30 @@ export default function BingoCell({
 		}
 	};
 
+	// Determine cell style based on winning status or claim status
+	// Show glow/outline if the current user's team has claimed this cell (even if other teams also claimed it)
+	const isClaimedByMyTeam = myTeamClaim !== undefined;
+	
+	let cellStyle: React.CSSProperties | undefined;
+	if (isWinning) {
+		cellStyle = {
+			backgroundColor: isWinning.teamColor,
+			boxShadow: `0 0 12px ${isWinning.teamColor}70, 0 0 24px ${isWinning.teamColor}50, inset 0 0 12px ${isWinning.teamColor}40`,
+			borderColor: isWinning.teamColor,
+			borderWidth: '3px',
+		};
+	} else if (isClaimedByMyTeam && myTeamClaim) {
+		// Show glow/outline if claimed by current user's team (even if other teams also claimed it)
+		cellStyle = {
+			boxShadow: `0 0 8px ${myTeamClaim.teamColor}50, 0 0 16px ${myTeamClaim.teamColor}40, inset 0 0 8px ${myTeamClaim.teamColor}20`,
+			borderColor: myTeamClaim.teamColor,
+			borderWidth: '2px',
+			background: `linear-gradient(135deg, ${myTeamClaim.teamColor}15 0%, ${myTeamClaim.teamColor}05 100%)`,
+		};
+	}
+
 	return (
-		<div 
+		<button 
 			className={cn("cursor-pointer", disabled && "cursor-not-allowed")}
 			onClick={handleClick}
 			onKeyDown={handleKeyDown}
@@ -127,17 +157,7 @@ export default function BingoCell({
 					title.length === 0 ? "bg-muted/30" : "",
 					(claimedBy || isWinning) ? "relative" : ""
 				)}
-				style={isWinning ? {
-					backgroundColor: isWinning.teamColor,
-					boxShadow: `0 0 20px ${isWinning.teamColor}90, 0 0 40px ${isWinning.teamColor}70, inset 0 0 20px ${isWinning.teamColor}50`,
-					borderColor: isWinning.teamColor,
-					borderWidth: '3px',
-				} : claimedBy ? {
-					boxShadow: `0 0 15px ${claimedBy.teamColor}80, 0 0 30px ${claimedBy.teamColor}60, 0 0 45px ${claimedBy.teamColor}40, inset 0 0 15px ${claimedBy.teamColor}30`,
-					borderColor: claimedBy.teamColor,
-					borderWidth: '2px',
-					background: `linear-gradient(135deg, ${claimedBy.teamColor}15 0%, ${claimedBy.teamColor}05 100%)`,
-				} : undefined}
+				style={cellStyle}
 			>
 			{claimedBy && (
 				<TooltipProvider>
@@ -157,7 +177,7 @@ export default function BingoCell({
 			{locked && <div className="text-foreground text-sm font-bold">Locked</div>}
 			{!disabled && (
           <div className="flex flex-col content-center grow self-stretch text-foreground text-center text-xs font-normal rounded px-1">
-            <div className="my-auto line-clamp-3 break-words leading-tight">{title || ""}</div>
+            <div className="my-auto line-clamp-3 wrap-break-words leading-tight">{title || ""}</div>
           </div>
 			)}
         {(locked && disabled) && (
@@ -166,7 +186,7 @@ export default function BingoCell({
           </div>
 				)}
 				{displaySlotItems && (
-					<div className="flex py-1 px-2 justify-center items-center gap-1 self-stretch rounded-2xl border border-border/50 bg-muted/30">
+					<div className="flex py-1 px-2 justify-center items-center gap-1 self-stretch rounded-2xl border border-border/80 bg-muted/20 drop-shadow-inner">
 						{variant &&
 							slotItems.map((item, i) =>
 								bingocellIcon(variant, item.color, item.number, i)
@@ -174,6 +194,6 @@ export default function BingoCell({
 					</div>
 				)}
 			</div>
-		</div>
+		</button>
 	);
 }

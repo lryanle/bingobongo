@@ -51,23 +51,79 @@ export default function ActivityFeed({
 }: ActivityFeedProps) {
   const [hoveredActivityId, setHoveredActivityId] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const lastActivityIdRef = useRef<string | null>(null);
+  const isUserScrollingRef = useRef(false);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Sort activities by createdAt (oldest first, newest last - for bottom display)
   const sortedActivities = [...activities].sort((a, b) => 
     new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   );
   
-  // Auto-scroll to bottom when activities change
+  // Check if user is near the bottom of the scroll container
+  const isNearBottom = () => {
+    if (!scrollContainerRef.current) return true;
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    const threshold = 100; // pixels from bottom
+    return scrollHeight - scrollTop - clientHeight < threshold;
+  };
+  
+  // Auto-scroll to bottom when new activities are added
   useEffect(() => {
-    if (scrollContainerRef.current) {
-      // Use requestAnimationFrame to ensure DOM is updated
-      requestAnimationFrame(() => {
-        if (scrollContainerRef.current) {
-          scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
-        }
-      });
+    const latestActivity = sortedActivities.at(-1);
+    const latestActivityId = latestActivity?.id;
+    
+    // Only auto-scroll if:
+    // 1. There's a new activity (ID changed)
+    // 2. User is near the bottom (or it's the first activity)
+    // 3. User isn't actively scrolling
+    if (latestActivityId && latestActivityId !== lastActivityIdRef.current) {
+      const shouldAutoScroll = lastActivityIdRef.current === null || (isNearBottom() && !isUserScrollingRef.current);
+      
+      if (shouldAutoScroll && scrollContainerRef.current) {
+        // Use requestAnimationFrame to ensure DOM is updated
+        requestAnimationFrame(() => {
+          if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTo({
+              top: scrollContainerRef.current.scrollHeight,
+              behavior: 'smooth',
+            });
+          }
+        });
+      }
+      
+      lastActivityIdRef.current = latestActivityId;
     }
-  }, [sortedActivities.length, activities.length]);
+  }, [sortedActivities]);
+  
+  // Track user scrolling to prevent auto-scroll when user is reading old messages
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    const handleScroll = () => {
+      isUserScrollingRef.current = true;
+      
+      // Clear existing timeout
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      
+      // Reset scrolling flag after user stops scrolling for 1 second
+      scrollTimeoutRef.current = setTimeout(() => {
+        isUserScrollingRef.current = false;
+      }, 1000);
+    };
+    
+    container.addEventListener('scroll', handleScroll);
+    
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const getTeamInfo = (teamIndex?: number) => {
     if (!teams || !Array.isArray(teams) || teams.length === 0) {

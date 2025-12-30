@@ -10,7 +10,7 @@ import { Session } from "@/lib/auth";
 
 export function SiteHeader({ session }: Readonly<{ session: Session | null }>) {
   return (
-      <header className="sticky top-0 z-50 w-full md:flex justify-center border-b border-border/40 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
+      <header className="sticky top-0 z-50 w-full md:flex justify-center border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 max-w-screen-2xl justify-between md:justify-center items-center px-4">
         <Navbar />
         <div className="md:flex flex-1 items-center justify-between space-x-2 hidden md:justify-end">

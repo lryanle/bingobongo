@@ -4,21 +4,23 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Users, Activity, Trophy, XCircle, Clock, Play } from "lucide-react";
+import { Calendar, Users, Activity, Trophy, XCircle, Clock, Play, Crown } from "lucide-react";
 import { db } from "@/lib/db";
 import { getGridSize, checkBingoWin } from "@/lib/bingo-utils";
 
-type MatchStatus = "not_started" | "in_progress" | "finished_won" | "finished_lost";
+type MatchStatus = "not_started" | "in_progress" | "finished_won" | "finished_lost" | "cancelled";
 
 interface TeamStats {
   name: string;
   color: string;
   playerCount: number;
   totalMarked: number;
+  totalTiles: number;
 }
 
 interface Match {
   id: string;
+  roomId: string; // Original room ID for navigation
   roomName: string;
   gameMode: string;
   boardSize: number;
@@ -29,28 +31,59 @@ interface Match {
   activityCount: number;
   lastUpdated: string;
   teams: TeamStats[];
+  winningTeam?: number;
+  winningTeamName?: string;
+  winningTeamColor?: string;
 }
 
 // Determine match status
 function getMatchStatus(
-  players: Array<{ markedItems: number[]; teamIndex?: number }>,
-  activities: Array<{ action: string; teamIndex?: number }>,
+  players: Array<{ markedItems: number[]; teamIndex?: number; lastActive?: Date }>,
+  activities: Array<{ action: string; teamIndex?: number; createdAt: Date }>,
   gameMode: string,
   boardSize: number,
+  room: { gameFinished?: boolean; winningTeam?: number },
   currentUserId?: string
 ): { status: MatchStatus; winningTeam?: number } {
+  // Check if all players disconnected for more than 1 hour
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  const allPlayersDisconnected = players.length > 0 && players.every((p) => {
+    if (!p.lastActive) return true; // If no lastActive, consider disconnected
+    return p.lastActive < oneHourAgo;
+  });
+  
+  if (allPlayersDisconnected && players.length > 0) {
+    return { status: "cancelled" };
+  }
+
   // Not started: No players
   if (players.length === 0) {
     return { status: "not_started" };
   }
 
-  // Check for win activities
-  const winActivity = activities.find((a) => a.action === "win" || a.action === "bingo");
-  if (winActivity?.teamIndex !== undefined) {
-    // Game finished - determine if current user won or lost
-    const currentPlayer = players.find((p) => p.teamIndex === winActivity.teamIndex);
-    if (currentPlayer) {
-      return { status: "finished_won", winningTeam: winActivity.teamIndex };
+  // Check room's gameFinished status first (most reliable)
+  if (room.gameFinished && room.winningTeam !== undefined) {
+    return { status: "finished_won", winningTeam: room.winningTeam };
+  }
+
+  // Check for win activities (find the most recent win)
+  const winActivities = activities.filter((a) => a.action === "win" || a.action === "bingo");
+  if (winActivities.length > 0) {
+    // Sort by createdAt descending to get most recent win
+    const sortedWins = [...winActivities].sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    const mostRecentWin = sortedWins[0];
+    
+    // Check if there's a board-reset after this win (meaning new game started)
+    const resetAfterWin = activities.find((a) => {
+      if (a.action !== "board-reset") return false;
+      return new Date(a.createdAt) > new Date(mostRecentWin.createdAt);
+    });
+    
+    // If no reset after win, game is still finished
+    if (!resetAfterWin && mostRecentWin.teamIndex !== undefined) {
+      return { status: "finished_won", winningTeam: mostRecentWin.teamIndex };
     }
   }
 
@@ -100,7 +133,9 @@ async function getMatches(currentUserId: string, session?: { user?: { id: string
   };
 
   // Fetch stats for each room
-  const matches = await Promise.all(
+  const allMatches: Match[] = [];
+  
+  await Promise.all(
     rooms.map(async (room) => {
       const [players, activities] = await Promise.all([
         db.player.findByRoomId(room._id.toString()),
@@ -121,18 +156,29 @@ async function getMatches(currentUserId: string, session?: { user?: { id: string
         };
       }
 
+      // Calculate total tiles based on board size
+      const gridSize = getGridSize(room.boardSize);
+      const totalTiles = gridSize * gridSize;
+
       // Determine match status
       const matchStatus = getMatchStatus(
         players.map((p) => ({
           markedItems: p.marked_items,
           teamIndex: p.team_index,
+          lastActive: p.last_active,
         })),
         activities.map((a) => ({
           action: a.action,
           teamIndex: a.team_index,
+          createdAt: a.created_at,
+          cellIndex: a.cell_index,
         })),
         room.gameMode,
         room.boardSize,
+        {
+          gameFinished: room.gameFinished,
+          winningTeam: room.winningTeam,
+        },
         currentUserId
       );
 
@@ -150,20 +196,151 @@ async function getMatches(currentUserId: string, session?: { user?: { id: string
         }
       }
 
+      // Pre-calculate win and reset activities for reuse
+      const winActivitiesForStats = activities.filter((a) => a.action === "win" || a.action === "bingo");
+      const resetActivitiesForStats = activities.filter((a) => a.action === "board-reset");
+      
       // Calculate team stats
-      const teamStats = room.teams.map((team, index) => {
-        const teamPlayers = players.filter((p) => p.team_index === index);
-        const totalMarked = teamPlayers.reduce((sum, p) => sum + p.marked_items.length, 0);
-        return {
-          name: team.name,
-          color: team.color,
-          playerCount: teamPlayers.length,
-          totalMarked,
-        };
-      });
+      // For finished games with resets, we need to calculate based on activities up to the win time
+      let teamStats: TeamStats[];
+      
+      // Check if we need to calculate stats for a finished game (before reset)
+      if (winActivitiesForStats.length > 0 && resetActivitiesForStats.length > 0) {
+        const sortedWins = [...winActivitiesForStats].sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        const sortedResets = [...resetActivitiesForStats].sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        
+        const mostRecentWin = sortedWins[0];
+        const mostRecentReset = sortedResets[0];
+        const resetAfterWin = new Date(mostRecentReset.created_at).getTime() > new Date(mostRecentWin.created_at).getTime();
+        
+        if (resetAfterWin && matchStatus.status === "finished_won") {
+          // Calculate stats based on activities up to the win time
+          const winTime = new Date(mostRecentWin.created_at).getTime();
+          
+          // Get all marked/claimed activities before the win
+          const markedActivities = activities.filter((a) => {
+            const activityTime = new Date(a.created_at).getTime();
+            return activityTime <= winTime && 
+                   (a.action === "marked" || a.action === "claimed") && 
+                   a.cell_index !== undefined &&
+                   a.team_index !== undefined;
+          });
+          
+          // Count marked items per team
+          const teamMarkedCounts = new Map<number, Set<number>>();
+          markedActivities.forEach((activity) => {
+            if (activity.team_index !== undefined && activity.cell_index !== undefined) {
+              if (!teamMarkedCounts.has(activity.team_index)) {
+                teamMarkedCounts.set(activity.team_index, new Set());
+              }
+              teamMarkedCounts.get(activity.team_index)?.add(activity.cell_index);
+            }
+          });
+          
+          // Get players at the time of the win (before reset)
+          // We'll use current players but calculate marked items from activities
+          teamStats = room.teams.map((team, index) => {
+            const teamPlayers = players.filter((p) => p.team_index === index);
+            const markedSet = teamMarkedCounts.get(index) || new Set();
+            const totalMarked = markedSet.size;
+            
+            return {
+              name: team.name,
+              color: team.color,
+              playerCount: teamPlayers.length,
+              totalMarked,
+              totalTiles,
+            };
+          });
+        } else {
+          // Use current player state (for in-progress games)
+          teamStats = room.teams.map((team, index) => {
+            const teamPlayers = players.filter((p) => p.team_index === index);
+            const totalMarked = teamPlayers.reduce((sum, p) => sum + p.marked_items.length, 0);
+            return {
+              name: team.name,
+              color: team.color,
+              playerCount: teamPlayers.length,
+              totalMarked,
+              totalTiles,
+            };
+          });
+        }
+      } else if (winActivitiesForStats.length > 0 && matchStatus.status === "finished_won") {
+        // Game finished but no reset - calculate from activities up to win time
+        const sortedWins = [...winActivitiesForStats].sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        const mostRecentWin = sortedWins[0];
+        const winTime = new Date(mostRecentWin.created_at).getTime();
+        
+        // Get all marked/claimed activities before the win
+        const markedActivities = activities.filter((a) => {
+          const activityTime = new Date(a.created_at).getTime();
+          return activityTime <= winTime && 
+                 (a.action === "marked" || a.action === "claimed") && 
+                 a.cell_index !== undefined &&
+                 a.team_index !== undefined;
+        });
+        
+        // Count marked items per team
+        const teamMarkedCounts = new Map<number, Set<number>>();
+        markedActivities.forEach((activity) => {
+          if (activity.team_index !== undefined && activity.cell_index !== undefined) {
+            if (!teamMarkedCounts.has(activity.team_index)) {
+              teamMarkedCounts.set(activity.team_index, new Set());
+            }
+            teamMarkedCounts.get(activity.team_index)?.add(activity.cell_index);
+          }
+        });
+        
+        // Calculate team stats from activities
+        teamStats = room.teams.map((team, index) => {
+          const teamPlayers = players.filter((p) => p.team_index === index);
+          const markedSet = teamMarkedCounts.get(index) || new Set();
+          const totalMarked = markedSet.size;
+          
+          return {
+            name: team.name,
+            color: team.color,
+            playerCount: teamPlayers.length,
+            totalMarked,
+            totalTiles,
+          };
+        });
+      } else {
+        // Use current player state (no reset scenario, game in progress)
+        teamStats = room.teams.map((team, index) => {
+          const teamPlayers = players.filter((p) => p.team_index === index);
+          const totalMarked = teamPlayers.reduce((sum, p) => sum + p.marked_items.length, 0);
+          return {
+            name: team.name,
+            color: team.color,
+            playerCount: teamPlayers.length,
+            totalMarked,
+            totalTiles,
+          };
+        });
+      }
 
-      return {
+      // Get winning team info
+      let winningTeamName: string | undefined;
+      let winningTeamColor: string | undefined;
+      if (matchStatus.winningTeam !== undefined) {
+        const winningTeam = room.teams[matchStatus.winningTeam];
+        if (winningTeam) {
+          winningTeamName = winningTeam.name;
+          winningTeamColor = winningTeam.color;
+        }
+      }
+
+      const baseMatch: Match = {
         id: room._id.toString(),
+        roomId: room._id.toString(), // Store original room ID for navigation
         roomName: room.roomName,
         gameMode: getModeName(room.gameMode),
         boardSize: room.boardSize,
@@ -174,11 +351,119 @@ async function getMatches(currentUserId: string, session?: { user?: { id: string
         activityCount: activities.length,
         lastUpdated: room.last_updated.toISOString(),
         teams: teamStats,
+        winningTeam: matchStatus.winningTeam,
+        winningTeamName,
+        winningTeamColor,
       };
+
+      // Check if there's a finished game AND a restart (new game in progress)
+      // Find the most recent win activity
+      const winActivities = activities.filter((a) => a.action === "win" || a.action === "bingo");
+      const resetActivities = activities.filter((a) => a.action === "board-reset");
+      
+      if (winActivities.length > 0 && resetActivities.length > 0) {
+        // Sort by date (reuse the sorted arrays if already calculated, otherwise sort)
+        const sortedWins = [...winActivitiesForStats].sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        const sortedResets = [...resetActivitiesForStats].sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        
+        const mostRecentWin = sortedWins[0];
+        const mostRecentReset = sortedResets[0];
+        
+        // If reset happened after win, we have two game sessions
+        const resetAfterWin = new Date(mostRecentReset.created_at).getTime() > new Date(mostRecentWin.created_at).getTime();
+        if (resetAfterWin) {
+          // Add finished game (with win info from the win activity)
+          const finishedWinningTeam = mostRecentWin.team_index;
+          const finishedWinningTeamInfo = finishedWinningTeam === undefined ? undefined : room.teams[finishedWinningTeam];
+          
+          // Determine finished game status
+          let finishedStatus: MatchStatus = "finished_won";
+          if (currentPlayer) {
+            finishedStatus = currentPlayer.team_index === finishedWinningTeam ? "finished_won" : "finished_lost";
+          }
+          
+          // Calculate team stats for the finished game based on activities up to win time
+          const winTime = new Date(mostRecentWin.created_at).getTime();
+          const markedActivitiesForFinished = activities.filter((a) => {
+            const activityTime = new Date(a.created_at).getTime();
+            return activityTime <= winTime && 
+                   (a.action === "marked" || a.action === "claimed") && 
+                   a.cell_index !== undefined &&
+                   a.team_index !== undefined;
+          });
+          
+          // Count marked items per team for finished game
+          const finishedTeamMarkedCounts = new Map<number, Set<number>>();
+          markedActivitiesForFinished.forEach((activity) => {
+            if (activity.team_index !== undefined && activity.cell_index !== undefined) {
+              if (!finishedTeamMarkedCounts.has(activity.team_index)) {
+                finishedTeamMarkedCounts.set(activity.team_index, new Set());
+              }
+              finishedTeamMarkedCounts.get(activity.team_index)?.add(activity.cell_index);
+            }
+          });
+          
+          // Calculate finished game team stats
+          const finishedTeamStats = room.teams.map((team, index) => {
+            const teamPlayers = players.filter((p) => p.team_index === index);
+            const markedSet = finishedTeamMarkedCounts.get(index) || new Set();
+            const totalMarked = markedSet.size;
+            
+            return {
+              name: team.name,
+              color: team.color,
+              playerCount: teamPlayers.length,
+              totalMarked,
+              totalTiles,
+            };
+          });
+          
+          const originalRoomId = room._id.toString();
+          
+          const finishedMatch: Match = {
+            ...baseMatch,
+            id: `${originalRoomId}-finished`,
+            roomId: originalRoomId, // Keep original room ID for navigation
+            status: finishedStatus,
+            winningTeam: finishedWinningTeam,
+            winningTeamName: finishedWinningTeamInfo?.name,
+            winningTeamColor: finishedWinningTeamInfo?.color,
+            lastUpdated: mostRecentWin.created_at.toISOString(),
+            teams: finishedTeamStats, // Use calculated stats for finished game
+          };
+          
+          const currentMatch: Match = {
+            ...baseMatch,
+            id: `${originalRoomId}-current`,
+            roomId: originalRoomId, // Keep original room ID for navigation
+            status: "in_progress",
+            winningTeam: undefined,
+            winningTeamName: undefined,
+            winningTeamColor: undefined,
+          };
+          
+          // Add both matches
+          allMatches.push(finishedMatch, currentMatch);
+          
+          return;
+        }
+      }
+      
+      // Single game session (no restart after win, or no win yet)
+      allMatches.push(baseMatch);
     })
   );
 
-  return matches;
+  // Sort by lastUpdated descending
+  allMatches.sort((a, b) => 
+    new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()
+  );
+
+  return allMatches;
 }
 
 function getStatusBadge(status: MatchStatus) {
@@ -211,6 +496,13 @@ function getStatusBadge(status: MatchStatus) {
           Lost
         </Badge>
       );
+    case "cancelled":
+      return (
+        <Badge variant="outline" className="bg-gray-300">
+          <XCircle className="w-3 h-3 mr-1" />
+          Cancelled
+        </Badge>
+      );
   }
 }
 
@@ -239,7 +531,7 @@ function formatDate(dateString: string): string {
 }
 
 export default async function MatchesPage() {
-  const authInstance = await auth;
+  const authInstance = auth;
   const headersList = await headers();
   const session = await authInstance.api.getSession({ headers: headersList });
   
@@ -273,7 +565,7 @@ export default async function MatchesPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {matches.map((match) => (
-            <Link key={match.id} href={match.status === "finished_won" || match.status === "finished_lost" ? `/matches/${match.id}` : `/bingo/${match.id}`}>
+            <Link key={match.id} href={match.status === "finished_won" || match.status === "finished_lost" ? `/matches/${match.roomId}` : `/bingo/${match.roomId}`}>
               <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
                 <CardHeader>
                   <div className="flex items-start justify-between mb-2">
@@ -307,27 +599,49 @@ export default async function MatchesPage() {
                   {match.teams.length > 0 && (
                     <div className="space-y-2">
                       <p className="text-sm font-medium">Teams:</p>
-                      <div className="space-y-1">
-                        {match.teams.map((team) => (
-                          <div
-                            key={`${team.name}-${team.color}`}
-                            className="flex items-center justify-between text-sm p-2 rounded"
-                            style={{ backgroundColor: `${team.color}20` }}
-                          >
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="w-3 h-3 rounded-full"
-                                style={{ backgroundColor: team.color }}
-                              />
-                              <span className="font-medium">{team.name}</span>
+                      <div className="space-y-1.5">
+                        {match.teams.map((team, teamIndex) => {
+                          const isWinner = match.status === "finished_won" || match.status === "finished_lost"
+                            ? match.winningTeam === teamIndex
+                            : false;
+                          
+                          return (
+                            <div
+                              key={`${team.name}-${team.color}`}
+                              className={`flex items-center justify-between text-sm p-2 rounded transition-all ${
+                                isWinner ? "border-2" : ""
+                              }`}
+                              style={isWinner ? {
+                                backgroundColor: team.color,
+                                borderColor: team.color,
+                                boxShadow: `0 0 8px ${team.color}50, 0 0 16px ${team.color}60`,
+                                color: "#ffffff",
+                              } : {
+                                backgroundColor: `${team.color}20`,
+                              }}
+                            >
+                              <div className="flex items-center gap-2">
+                                {isWinner && (
+                                  <Crown className="w-4 h-4" fill="#ffffff" style={{ color: "#ffffff" }} />
+                                )}
+                                {!isWinner && (
+                                  <div
+                                    className="w-3 h-3 rounded-full"
+                                    style={{ backgroundColor: isWinner ? "#ffffff" : team.color }}
+                                    />
+                                )}
+                                <span className={`font-medium ${isWinner ? "text-white" : ""}`}>
+                                  {team.name}
+                                </span>
+                              </div>
+                              <div className={`flex items-center gap-3 ${isWinner ? "text-white/90" : "text-muted-foreground"}`}>
+                                <span>{team.playerCount} players</span>
+                                <span>•</span>
+                                <span>{team.totalMarked}/{team.totalTiles} marked</span>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-3 text-muted-foreground">
-                              <span>{team.playerCount} players</span>
-                              <span>•</span>
-                              <span>{team.totalMarked} marked</span>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
