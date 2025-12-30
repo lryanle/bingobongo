@@ -11,6 +11,7 @@ interface ActionButtonsProps {
   readonly isOwner?: boolean;
   readonly onLeave: () => void;
   readonly onDeleteRoom?: () => void;
+  readonly onReset?: () => void;
 }
 
 export default function ActionButtons({
@@ -18,6 +19,7 @@ export default function ActionButtons({
   isOwner = false,
   onLeave,
   onDeleteRoom,
+  onReset,
 }: ActionButtonsProps) {
   const router = useRouter();
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -79,6 +81,7 @@ export default function ActionButtons({
           open={settingsOpen}
           onOpenChange={setSettingsOpen}
           onDelete={handleDeleteRoom}
+          onReset={onReset}
         />
       )}
     </>

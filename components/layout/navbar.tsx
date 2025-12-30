@@ -43,17 +43,6 @@ export default function Navbar() {
           Matches
         </Link>
         <Link
-          href="/bingo"
-          className={cn(
-            "transition-colors hover:text-foreground/80",
-            (pathname === "/bingo" || pathname === "/bingo/join")
-              ? "text-foreground"
-              : "text-foreground/60"
-          )}
-        >
-          Bingo
-        </Link>
-        <Link
           href="/bingo/create"
           className={cn(
             "transition-colors hover:text-foreground/80",

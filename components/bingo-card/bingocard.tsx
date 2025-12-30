@@ -12,6 +12,14 @@ export interface BingoCardProps {
     locked?: boolean,
     disabled?: boolean,
     onClick?: () => void | Promise<void>,
+    claimedBy?: {
+      teamIndex: number;
+      teamColor: string;
+      claimedAt: Date;
+    };
+    isWinning?: {
+      teamColor: string;
+    };
   }>,
   battleshipData?: Array<{position: [x: number, y: number], number: number}>
 }
@@ -57,6 +65,8 @@ export default function BingoCard({ modeName, lobbyName, mode, size, bingoData, 
                 favorite={cell.favorite} 
                 locked={cell.locked}
                 onClick={cell.onClick}
+                claimedBy={cell.claimedBy}
+                isWinning={cell.isWinning}
               />
             ))}
           </div>

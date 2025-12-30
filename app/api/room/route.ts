@@ -1,7 +1,7 @@
 import { getAuth } from "@/lib/auth";
 import { headers } from "next/headers";
-import type { BingoRoom } from "@/types/bingo";
 import { db } from "@/lib/db";
+import { getGridSize } from "@/lib/bingo-utils";
 
 // This is a hypothetical API route function
 export async function POST(request: Request) {
@@ -45,33 +45,65 @@ export async function POST(request: Request) {
             return new Response("Bad Request: Room data missing data", { status: 400 });
           }
 
-          // make database call to upsert room
+          // Always create a new room (don't upsert)
+          // If user has an existing room, it will remain in history
           try {
-            const roomObj = await db.room.upsertByOwnerId(
-              userId,
-              {
-                roomName: roomData.roomName,
-                roomPassword: roomData.roomPassword,
-                bingoSeed: roomData.bingoSeed,
-                gameMode: roomData.gameMode,
-                boardSize: roomData.boardSize[0] as number,
-                teams: roomData.teams.map((team: {name: string, color: string}) => {return {name: team.name, color: team.color}}),
-                owner_id: userId,
-              },
-              {
-                roomName: roomData.roomName,
-                roomPassword: roomData.roomPassword,
-                bingoSeed: roomData.bingoSeed,
-                gameMode: roomData.gameMode,
-                boardSize: roomData.boardSize[0] as number,
-                teams: roomData.teams.map((team: {name: string, color: string}) => {return {name: team.name, color: team.color}}),
+            // Calculate grid size and required items
+            const boardSizeValue = roomData.boardSize[0] as number;
+            const gridSize = getGridSize(boardSizeValue);
+            const requiredItems = gridSize * gridSize;
+            
+            // Get bingo items from room data
+            const providedItems = roomData.bingoItems || [];
+            
+            // Randomly select items if more than needed, using bingo seed for randomness
+            let selectedItems: string[] = [];
+            if (providedItems.length === 0) {
+              // No items provided - use empty strings
+              selectedItems = Array(requiredItems).fill("");
+            } else if (providedItems.length === requiredItems) {
+              // Exact amount - use all items
+              selectedItems = [...providedItems];
+            } else if (providedItems.length > requiredItems) {
+              // More than needed - randomly select using seed
+              const seed = roomData.bingoSeed;
+              let hash = 0;
+              for (let i = 0; i < seed.length; i++) {
+                const char = seed.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
               }
-            );
+              let state = Math.abs(hash);
+              const random = () => {
+                state = (state * 9301 + 49297) % 233280;
+                return state / 233280;
+              };
+              
+              // Shuffle and select
+              const shuffled = [...providedItems].sort(() => random() - 0.5);
+              selectedItems = shuffled.slice(0, requiredItems);
+            } else {
+              // Less than needed - pad with empty strings
+              selectedItems = [...providedItems, ...Array(requiredItems - providedItems.length).fill("")];
+            }
+            
+            const roomObj = await db.room.create({
+              roomName: roomData.roomName,
+              roomPassword: roomData.roomPassword,
+              bingoSeed: roomData.bingoSeed,
+              gameMode: roomData.gameMode,
+              boardSize: boardSizeValue,
+              teams: roomData.teams.map((team: {name: string, color: string}) => {return {name: team.name, color: team.color}}),
+              owner_id: userId,
+              bingoItems: selectedItems,
+              claimedItems: [], // Start with no claimed items
+              gameFinished: false,
+            });
 
             return new Response(roomObj._id.toString(), { status: 200 });
           } catch (e) {
-            console.error("Error upserting room:", e);
-            return new Response("Internal Server Error: Error upserting room", { status: 500 });
+            console.error("Error creating room:", e);
+            return new Response("Internal Server Error: Error creating room", { status: 500 });
           }
         } catch (e) {
           console.error("Invalid room data:", e);

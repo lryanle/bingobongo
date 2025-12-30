@@ -296,6 +296,21 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     if (!leaderid) return; // Guard against undefined leaderid
     
+    // Calculate minimum items needed based on board size
+    const boardSizeValue = values.boardSize[0];
+    const gridSize = boardSizeValue === 0 ? 5 : boardSizeValue === 50 ? 7 : 10;
+    const minItems = gridSize * gridSize;
+    
+    // Get bingo items from form
+    const bingoItems = values.importBingoData || [];
+    
+    // Validate minimum items
+    if (bingoItems.length < minItems) {
+      alert(`Please provide at least ${minItems} bingo items (current: ${bingoItems.length}). The board size ${gridSize}x${gridSize} requires ${minItems} items.`);
+      setIsSubmitting(false);
+      return;
+    }
+    
     const roomData = {
       roomName: values.roomName,
       roomPassword: values.roomPassword || undefined,
@@ -304,6 +319,7 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
       boardSize: values.boardSize,
       teams: values.teams,
       ownerId: leaderid,
+      bingoItems: bingoItems, // Include bingo items
     };
 
     // Check if user has an existing room

@@ -143,6 +143,34 @@ const page = async ({ params }: PageProps) => {
   const currentPlayer = players.find((p) => p.userId === currentUserId);
   const initialMarkedItems = currentPlayer?.markedItems || [];
 
+  // Serialize claimedItems to plain objects (convert ObjectIds to strings and Dates to ISO strings)
+  const serializedClaimedItems = (room.claimedItems || []).map((item) => {
+    let claimedAt: string;
+    if (item.claimedAt instanceof Date) {
+      claimedAt = item.claimedAt.toISOString();
+    } else if (typeof item.claimedAt === 'string') {
+      claimedAt = item.claimedAt;
+    } else {
+      claimedAt = new Date(item.claimedAt).toISOString();
+    }
+
+    let claimedBy: string;
+    if (item.claimedBy instanceof ObjectId) {
+      claimedBy = item.claimedBy.toString();
+    } else if (typeof item.claimedBy === 'string') {
+      claimedBy = item.claimedBy;
+    } else {
+      claimedBy = String(item.claimedBy);
+    }
+
+    return {
+      cellIndex: item.cellIndex,
+      teamIndex: item.teamIndex,
+      claimedAt,
+      claimedBy,
+    };
+  });
+
   // Prepare room data for BingoRoom component
   const initialRoom = {
     id: room._id.toString(),
@@ -152,6 +180,12 @@ const page = async ({ params }: PageProps) => {
     boardSize: room.boardSize,
     teams: room.teams,
     ownerId: room.owner_id.toString(),
+    bingoItems: room.bingoItems || [],
+    claimedItems: serializedClaimedItems,
+    gameFinished: room.gameFinished || false,
+    winningTeam: room.winningTeam,
+    restartVotes: (room.restartVotes || []).map((vote) => vote.toString()),
+    restartCountdown: room.restartCountdown,
   };
 
   return (

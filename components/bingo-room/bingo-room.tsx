@@ -6,6 +6,8 @@ import PlayerList from "./player-list";
 import ActivityFeed from "./activity-feed";
 import RoomLink from "./room-link";
 import ActionButtons from "./action-buttons";
+import Confetti from "./confetti";
+import WinModal from "./win-modal";
 import { generateBingoData, getGridSize } from "@/lib/bingo-utils";
 import { pusherClient } from "@/lib/pusher";
 import { useSession } from "@/lib/auth-client";
@@ -20,6 +22,17 @@ interface BingoRoomProps {
     boardSize: number;
     teams: Array<{ name: string; color: string }>;
     ownerId: string;
+    bingoItems?: string[];
+    claimedItems?: Array<{
+      cellIndex: number;
+      teamIndex: number;
+      claimedAt: Date | string;
+      claimedBy: string;
+    }>;
+    gameFinished?: boolean;
+    winningTeam?: number;
+    restartVotes?: string[];
+    restartCountdown?: number;
   };
   readonly initialPlayers: Array<{
     id: string;
@@ -55,6 +68,22 @@ export default function BingoRoom({
   const [players, setPlayers] = useState(initialPlayers);
   const [activities, setActivities] = useState(initialActivities);
   const [markedItems, setMarkedItems] = useState<number[]>(initialMarkedItems);
+  const [claimedItems, setClaimedItems] = useState<Array<{
+    cellIndex: number;
+    teamIndex: number;
+    claimedAt: Date | string;
+    claimedBy: string;
+  }>>(initialRoom.claimedItems || []);
+  const [gameFinished, setGameFinished] = useState(initialRoom.gameFinished || false);
+  const [winningTeam, setWinningTeam] = useState<number | undefined>(initialRoom.winningTeam);
+  const [winningLines, setWinningLines] = useState<Array<{ type: 'row' | 'col' | 'diag'; index: number; cells: number[] }>>([]);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [showWinModal, setShowWinModal] = useState(initialRoom.gameFinished || false);
+  const [restartVotes, setRestartVotes] = useState<number>(initialRoom.restartVotes?.length || 0);
+  const [restartCountdown, setRestartCountdown] = useState<number | undefined>(initialRoom.restartCountdown);
+  const [hasVoted, setHasVoted] = useState(
+    initialRoom.restartVotes?.includes(session.data?.user?.id || "") || false
+  );
   
   // Initialize selectedTeam to 0 (first team) by default
   // This allows new users to join immediately without waiting
@@ -78,21 +107,61 @@ export default function BingoRoom({
     ? initialRoom.teams
     : [{ name: "Team 1", color: "#6b7280" }, { name: "Team 2", color: "#1d4ed8" }];
 
-  // Generate bingo data
+  // Generate bingo data using stored items (empty at start if not provided)
   const gridSize = getGridSize(initialRoom.boardSize);
   const bingoData = generateBingoData(
     initialRoom.bingoSeed,
     gridSize,
-    teams
+    teams,
+    initialRoom.bingoItems // Use stored items (empty strings if not provided)
   );
 
-  // Update marked items in bingo data and add onClick handlers
+  // Check if this is lockout mode
+  const isLockout = initialRoom.gameMode.includes("lockout");
+
+  // Check if a cell is part of a winning line
+  const isWinningCell = (cellIndex: number): boolean => {
+    return winningLines.some((line) => line.cells.includes(cellIndex));
+  };
+
+  // Update bingo data with claimed states and onClick handlers
   const updatedBingoData: BingoCardProps["bingoData"] = bingoData.map(
-    (cell, index) => ({
-      ...cell,
-      disabled: markedItems.includes(index),
-      onClick: () => handleCellClick(index),
-    })
+    (cell, index) => {
+      const claimedItem = claimedItems.find((item) => item.cellIndex === index);
+      const claimedTeam = claimedItem ? teams[claimedItem.teamIndex] : undefined;
+      const isWinning = isWinningCell(index);
+      const winningTeamData = winningTeam !== undefined ? teams[winningTeam] : undefined;
+      
+      // Add team circle to slot items if claimed
+      // When claimed, replace original slot items with the team circle
+      let updatedSlotItems = cell.slotItems || [];
+      if (claimedItem && claimedTeam) {
+        // Replace slot items with the team circle when claimed
+        updatedSlotItems = [
+          {
+            color: claimedTeam.color,
+            number: claimedItem.teamIndex + 1, // Team number (1-indexed)
+          },
+        ];
+      }
+      
+      return {
+        ...cell,
+        slotItems: updatedSlotItems,
+        disabled: isLockout ? markedItems.includes(index) : false, // Only disable in lockout mode
+        claimedBy: claimedItem ? {
+          teamIndex: claimedItem.teamIndex,
+          teamColor: claimedTeam?.color || "#6b7280",
+          claimedAt: typeof claimedItem.claimedAt === 'string' 
+            ? new Date(claimedItem.claimedAt) 
+            : claimedItem.claimedAt,
+        } : undefined,
+        isWinning: isWinning && winningTeamData ? {
+          teamColor: winningTeamData.color,
+        } : undefined,
+        onClick: () => handleCellClick(index),
+      };
+    }
   );
 
   // Join room on mount and when selectedTeam changes
@@ -349,6 +418,68 @@ export default function BingoRoom({
       }
     });
 
+    // Listen for item-claimed events (team-based claiming)
+    channel.bind("item-claimed", (data: {
+      userId: string;
+      userName: string;
+      cellIndex: number;
+      itemTitle?: string;
+      teamIndex: number;
+      claimed: boolean;
+      previousTeam?: number;
+    }) => {
+      // Ignore Pusher events for our own actions (we already have server response)
+      const isOwnAction = data.userId === session.data?.user?.id;
+      const optimisticUpdate = optimisticUpdates.current.get(data.cellIndex);
+      
+      if (isOwnAction && optimisticUpdate) {
+        // This is our own action and we have an optimistic update
+        // The server response already updated the state, so ignore this Pusher event
+        return;
+      }
+      
+      // Update claimed items for other users' actions
+      setClaimedItems((prev) => {
+        if (data.claimed) {
+          // Add or update claim
+          return [
+            ...prev.filter((item) => item.cellIndex !== data.cellIndex),
+            {
+              cellIndex: data.cellIndex,
+              teamIndex: data.teamIndex,
+              claimedAt: new Date().toISOString(),
+              claimedBy: data.userId,
+            },
+          ];
+        } else {
+          // Remove claim
+          return prev.filter((item) => item.cellIndex !== data.cellIndex);
+        }
+      });
+      
+      // Refresh players and activities
+      fetch(`/api/rooms/${roomId}/players`)
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error(`Failed to fetch players: ${res.status}`);
+          }
+          return res.json();
+        })
+        .then((newPlayers) => setPlayers(newPlayers))
+        .catch((err) => console.error("Error fetching players:", err));
+      
+      fetch(`/api/rooms/${roomId}/activities?limit=50`)
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error(`Failed to fetch activities: ${res.status}`);
+          }
+          return res.json();
+        })
+        .then((newActivities) => setActivities(newActivities))
+        .catch((err) => console.error("Error fetching activities:", err));
+    });
+
+    // Listen for item-marked events (lockout mode)
     channel.bind("item-marked", (data: {
       userId: string;
       userName: string;
@@ -360,10 +491,8 @@ export default function BingoRoom({
       if (data.userId === session.data?.user?.id) {
         setMarkedItems((prev) => {
           if (data.marked) {
-            // Only add if not already present (prevents duplicates from optimistic updates)
             return prev.includes(data.cellIndex) ? prev : [...prev, data.cellIndex];
           } else {
-            // Remove if present
             return prev.filter((idx) => idx !== data.cellIndex);
           }
         });
@@ -392,6 +521,92 @@ export default function BingoRoom({
         .catch((err) => console.error("Error fetching activities:", err));
     });
 
+    // Listen for team win events
+    channel.bind("team-won", (data: {
+      teamIndex: number;
+      teamName: string;
+      winningLines?: Array<{ type: 'row' | 'col' | 'diag'; index: number; cells: number[] }>;
+    }) => {
+      setGameFinished(true);
+      setWinningTeam(data.teamIndex);
+      if (data.winningLines) {
+        setWinningLines(data.winningLines);
+      }
+      setShowConfetti(true);
+      setShowWinModal(true);
+      setHasVoted(false);
+      setRestartVotes(0);
+      setRestartCountdown(undefined);
+      // Hide confetti after 5 seconds
+      setTimeout(() => setShowConfetti(false), 5000);
+    });
+
+    // Listen for restart vote events
+    channel.bind("restart-vote", (data: {
+      userId: string;
+      votes: number;
+      playerCount: number;
+      majority: number;
+      restartScheduled?: string;
+      countdown?: number;
+    }) => {
+      setRestartVotes(data.votes);
+      if (data.countdown !== undefined) {
+        setRestartCountdown(data.countdown);
+      }
+    });
+
+    // Listen for restart scheduled events
+    channel.bind("restart-scheduled", (data: {
+      countdown: number;
+      scheduledAt: string;
+      instant?: boolean;
+    }) => {
+      setRestartCountdown(data.countdown);
+    });
+
+    // Listen for restart countdown updates
+    channel.bind("restart-countdown", (data: {
+      countdown: number;
+    }) => {
+      setRestartCountdown(data.countdown);
+    });
+
+    // Listen for board reset events
+    channel.bind("board-reset", () => {
+      setClaimedItems([]);
+      setGameFinished(false);
+      setWinningTeam(undefined);
+      setWinningLines([]);
+      setMarkedItems([]);
+      setShowWinModal(false);
+      setRestartVotes(0);
+      setRestartCountdown(undefined);
+      setHasVoted(false);
+      // Refresh room data
+      fetch(`/api/rooms/${roomId}`)
+        .then((res) => res.json())
+        .then((roomData) => {
+          if (roomData.claimedItems) {
+            setClaimedItems(roomData.claimedItems);
+          }
+          setGameFinished(roomData.gameFinished || false);
+          setWinningTeam(roomData.winningTeam);
+        })
+        .catch((err) => console.error("Error fetching room:", err));
+      
+      // Refresh players and activities
+      fetch(`/api/rooms/${roomId}/players`)
+        .then((res) => res.json())
+        .then((newPlayers) => setPlayers(newPlayers))
+        .catch((err) => console.error("Error fetching players:", err));
+      
+      fetch(`/api/rooms/${roomId}/activities?limit=50`)
+        .then((res) => res.json())
+        .then((newActivities) => setActivities(newActivities))
+        .catch((err) => console.error("Error fetching activities:", err));
+    });
+
     channel.bind("room-deleted", (data: { roomId: string }) => {
       // Redirect all users to bingo page when room is deleted
       globalThis.location.href = "/bingo";
@@ -402,9 +617,26 @@ export default function BingoRoom({
     };
   }, [roomId, session.data?.user?.id]);
 
+  // Cleanup old optimistic updates periodically to prevent memory leaks
+  useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      const now = Date.now();
+      const maxAge = 5000; // 5 seconds
+      optimisticUpdates.current.forEach((value, key) => {
+        if (now - value.timestamp > maxAge) {
+          optimisticUpdates.current.delete(key);
+        }
+      });
+    }, 2000); // Check every 2 seconds
+
+    return () => clearInterval(cleanupInterval);
+  }, []);
+
   // Handle cell click with optimistic update
   // Track pending requests per cell to prevent concurrent requests
   const pendingCellRequests = useRef<Set<number>>(new Set());
+  // Track cells that we've optimistically updated to ignore Pusher events for our own actions
+  const optimisticUpdates = useRef<Map<number, { timestamp: number; teamIndex: number }>>(new Map());
   
   const handleCellClick = async (index: number) => {
     // Prevent concurrent requests for the same cell
@@ -412,21 +644,47 @@ export default function BingoRoom({
       return;
     }
 
+    if (gameFinished) {
+      return; // Don't allow clicks if game is finished
+    }
+
     const cell = bingoData[index];
+    const currentPlayer = players.find((p) => p.userId === session.data?.user?.id);
     
-    // Use functional update to get the latest state
-    setMarkedItems((prevMarkedItems) => {
-      const isMarked = prevMarkedItems.includes(index);
+    if (!currentPlayer || currentPlayer.teamIndex === undefined) {
+      return; // Player must be on a team
+    }
+    
+    // Track this request
+    pendingCellRequests.current.add(index);
+    
+    // For non-lockout modes, use team-based claiming
+    if (!isLockout) {
+      const currentClaim = claimedItems.find((item) => item.cellIndex === index);
+      const isClaimedByMyTeam = currentClaim && currentClaim.teamIndex === currentPlayer.teamIndex;
       
-      // Optimistically update UI immediately
-      const optimisticMarkedItems = isMarked
-        ? prevMarkedItems.filter((idx) => idx !== index)
-        : [...prevMarkedItems, index];
+      // Optimistically update claimed items
+      const optimisticClaimedItems = isClaimedByMyTeam
+        ? claimedItems.filter((item) => item.cellIndex !== index)
+        : [
+            ...claimedItems.filter((item) => item.cellIndex !== index),
+            {
+              cellIndex: index,
+              teamIndex: currentPlayer.teamIndex,
+              claimedAt: new Date().toISOString(),
+              claimedBy: session.data?.user?.id || "",
+            },
+          ];
       
-      // Track this request
-      pendingCellRequests.current.add(index);
+      // Track this optimistic update to ignore Pusher events for our own action
+      optimisticUpdates.current.set(index, {
+        timestamp: Date.now(),
+        teamIndex: currentPlayer.teamIndex,
+      });
       
-      // Make API call with the optimistic state
+      setClaimedItems(optimisticClaimedItems);
+      
+      // Make API call
       fetch(`/api/rooms/${roomId}/mark`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -438,25 +696,81 @@ export default function BingoRoom({
         .then(async (response) => {
           if (response.ok) {
             const data = await response.json();
-            // Update with server response (server has the source of truth)
-            setMarkedItems(data.markedItems);
+            // Update with server response (source of truth)
+            if (data.claimedItems) {
+              setClaimedItems(data.claimedItems);
+            }
+            // Clear optimistic update tracking after server confirms
+            // Wait a bit to allow any delayed Pusher event to arrive and be ignored
+            setTimeout(() => {
+              optimisticUpdates.current.delete(index);
+            }, 2000);
+            
+            // Handle win detection
+            if (data.winDetected && data.winningTeam !== undefined) {
+              setGameFinished(true);
+              setWinningTeam(data.winningTeam);
+              if (data.winningLines) {
+                setWinningLines(data.winningLines);
+              }
+              setShowConfetti(true);
+              setShowWinModal(true);
+              setHasVoted(false);
+              setRestartVotes(0);
+              setRestartCountdown(undefined);
+              // Hide confetti after 5 seconds
+              setTimeout(() => setShowConfetti(false), 5000);
+            }
           } else {
             // Revert optimistic update on error
-            setMarkedItems(prevMarkedItems);
+            optimisticUpdates.current.delete(index);
+            setClaimedItems(claimedItems);
           }
         })
         .catch((error) => {
-          console.error("Error marking item:", error);
+          console.error("Error claiming item:", error);
           // Revert optimistic update on error
-          setMarkedItems(prevMarkedItems);
+          optimisticUpdates.current.delete(index);
+          setClaimedItems(claimedItems);
         })
         .finally(() => {
-          // Remove from pending requests
           pendingCellRequests.current.delete(index);
         });
-      
-      return optimisticMarkedItems;
-    });
+    } else {
+      // Lockout mode - use old system
+      setMarkedItems((prevMarkedItems) => {
+        const isMarked = prevMarkedItems.includes(index);
+        const optimisticMarkedItems = isMarked
+          ? prevMarkedItems.filter((idx) => idx !== index)
+          : [...prevMarkedItems, index];
+        
+        fetch(`/api/rooms/${roomId}/mark`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cellIndex: index,
+            itemTitle: cell.title,
+          }),
+        })
+          .then(async (response) => {
+            if (response.ok) {
+              const data = await response.json();
+              setMarkedItems(data.markedItems);
+            } else {
+              setMarkedItems(prevMarkedItems);
+            }
+          })
+          .catch((error) => {
+            console.error("Error marking item:", error);
+            setMarkedItems(prevMarkedItems);
+          })
+          .finally(() => {
+            pendingCellRequests.current.delete(index);
+          });
+        
+        return optimisticMarkedItems;
+      });
+    }
   };
 
   // Handle team selection with optimistic update
@@ -570,6 +884,39 @@ export default function BingoRoom({
     }
   };
 
+  // Handle vote for restart
+  const handleVote = async () => {
+    try {
+      const response = await fetch(`/api/rooms/${roomId}/vote-restart`, {
+        method: "POST",
+      });
+      if (response.ok) {
+        setHasVoted(true);
+      }
+    } catch (error) {
+      console.error("Error voting for restart:", error);
+    }
+  };
+
+  // Handle instant restart (host only)
+  const handleInstantRestart = async () => {
+    try {
+      await fetch(`/api/rooms/${roomId}/restart-game`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instant: true, countdown: 5 }),
+      });
+    } catch (error) {
+      console.error("Error restarting game:", error);
+    }
+  };
+
+  // Handle change game mode (host only)
+  const handleChangeGameMode = () => {
+    // TODO: Implement game mode change dialog
+    console.log("Change game mode - TODO");
+  };
+
   // Get mode name from game mode
   const getModeName = () => {
     if (initialRoom.gameMode.includes("battleship")) return "Battleship Bingo";
@@ -604,8 +951,39 @@ export default function BingoRoom({
     };
   }, [gridSize, initialRoom.roomName, initialRoom.gameMode]);
 
+  const winningTeamData = winningTeam !== undefined ? teams[winningTeam] : undefined;
+
   return (
-    <div className="flex justify-center items-center min-h-screen bg-background p-6">
+    <div className="flex justify-center items-center min-h-screen bg-background p-6 relative">
+      <Confetti show={showConfetti} teamColor={winningTeamData?.color} />
+      
+      {/* Backdrop blur when win modal is open */}
+      {showWinModal && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40" />
+      )}
+
+      {/* Win Modal */}
+      {gameFinished && winningTeam !== undefined && winningTeamData && (
+        <WinModal
+          open={showWinModal}
+          onClose={() => setShowWinModal(false)}
+          winningTeam={{
+            index: winningTeam,
+            name: winningTeamData.name,
+            color: winningTeamData.color,
+          }}
+          isOwner={isOwner}
+          currentUserId={session.data?.user?.id}
+          playerCount={players.length}
+          votes={restartVotes}
+          countdown={restartCountdown}
+          onVote={handleVote}
+          onInstantRestart={handleInstantRestart}
+          onChangeGameMode={handleChangeGameMode}
+          hasVoted={hasVoted}
+        />
+      )}
+
       {/* Grouped Bingo Card and Sidebar */}
       <div className="flex gap-6 items-start max-w-7xl w-full">
         {/* Main Bingo Card - 3/5 width */}
@@ -639,6 +1017,9 @@ export default function BingoRoom({
             activities={activities}
             teams={teams}
             players={players}
+            fullPlayers={players}
+            claimedItems={claimedItems}
+            currentUserId={session.data?.user?.id}
           />
         </div>
         
@@ -656,6 +1037,9 @@ export default function BingoRoom({
           onDeleteRoom={() => {
             // Redirect to bingo page after room deletion
             globalThis.location.href = "/bingo";
+          }}
+          onReset={() => {
+            // Reset will be handled by the board-reset Pusher event
           }}
         />
         </div>

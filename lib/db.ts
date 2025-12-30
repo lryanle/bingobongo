@@ -196,6 +196,16 @@ export const rooms = {
     return collection.findOne({ owner_id: toObjectId(ownerId) });
   },
 
+  async findAll(limit: number = 50, sortBy: "last_updated" | "created" = "last_updated"): Promise<Room[]> {
+    const collection = await getCollection<Room>("rooms");
+    const sortField = sortBy === "created" ? "_id" : "last_updated";
+    return collection
+      .find({})
+      .sort({ [sortField]: -1 })
+      .limit(limit)
+      .toArray();
+  },
+
   async create(data: CreateRoomInput): Promise<Room> {
     const collection = await getCollection<Room>("rooms");
     const result = await collection.insertOne({
@@ -262,6 +272,51 @@ export const rooms = {
   async delete(id: string | ObjectId): Promise<void> {
     const collection = await getCollection<Room>("rooms");
     await collection.deleteOne({ _id: toObjectId(id) });
+  },
+
+  async claimItem(
+    roomId: string | ObjectId,
+    cellIndex: number,
+    teamIndex: number,
+    userId: string | ObjectId
+  ): Promise<{ claimed: boolean; previousTeam?: number }> {
+    const collection = await getCollection<Room>("rooms");
+    const room = await collection.findOne({ _id: toObjectId(roomId) });
+    
+    if (!room) {
+      throw new Error("Room not found");
+    }
+
+    const claimedItems = room.claimedItems || [];
+    const existingClaim = claimedItems.find((item) => item.cellIndex === cellIndex);
+    
+    // If same team claims, unclaim it
+    if (existingClaim && existingClaim.teamIndex === teamIndex) {
+      const updatedItems = claimedItems.filter((item) => item.cellIndex !== cellIndex);
+      await collection.updateOne(
+        { _id: toObjectId(roomId) },
+        { $set: { claimedItems: updatedItems, last_updated: new Date() } }
+      );
+      return { claimed: false, previousTeam: teamIndex };
+    }
+    
+    // If different team or unclaimed, claim it for this team
+    const updatedItems = [
+      ...claimedItems.filter((item) => item.cellIndex !== cellIndex),
+      {
+        cellIndex,
+        teamIndex,
+        claimedAt: new Date(),
+        claimedBy: toObjectId(userId),
+      },
+    ];
+    
+    await collection.updateOne(
+      { _id: toObjectId(roomId) },
+      { $set: { claimedItems: updatedItems, last_updated: new Date() } }
+    );
+    
+    return { claimed: true, previousTeam: existingClaim?.teamIndex };
   },
 };
 

@@ -56,6 +56,18 @@ export interface Room {
   teams: Array<{ name: string; color: string }>;
   owner_id: DBObjectId;
   last_updated: Date;
+  bingoItems?: string[]; // List of bingo item titles
+  claimedItems?: Array<{ // Track which team claimed each cell and when
+    cellIndex: number;
+    teamIndex: number;
+    claimedAt: Date;
+    claimedBy: DBObjectId; // User who claimed it
+  }>;
+  winningTeam?: number; // Team that won (if game is finished)
+  gameFinished?: boolean;
+  restartVotes?: Array<DBObjectId>; // Users who voted to restart
+  restartCountdown?: number; // Countdown in seconds until restart
+  restartScheduled?: Date; // When restart is scheduled
 }
 
 // ChatRoom model
@@ -118,6 +130,15 @@ export interface CreateRoomInput {
   teams: Array<{ name: string; color: string }>;
   owner_id: DBObjectId;
   last_updated?: Date;
+  bingoItems?: string[];
+  claimedItems?: Array<{
+    cellIndex: number;
+    teamIndex: number;
+    claimedAt: Date;
+    claimedBy: DBObjectId;
+  }>;
+  winningTeam?: number;
+  gameFinished?: boolean;
 }
 
 export interface UpdateRoomInput {
@@ -128,6 +149,16 @@ export interface UpdateRoomInput {
   boardSize?: number;
   teams?: Array<{ name: string; color: string }>;
   last_updated?: Date;
+  bingoItems?: string[];
+  claimedItems?: Array<{
+    cellIndex: number;
+    teamIndex: number;
+    claimedAt: Date;
+    claimedBy: DBObjectId;
+  }>;
+  winningTeam?: number;
+  gameFinished?: boolean;
+  resetBoard?: boolean; // Flag to reset the board
 }
 
 export interface CreateChatRoomInput {

@@ -3,6 +3,12 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 import bingocellIcon from "./bingocellicon";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const bingoCellVariants = cva(
 	"flex w-26 h-26 p-2 flex-col items-center justify-between gap-1 shrink-0 rounded-2xl shadow backdrop-blur-xl",
@@ -39,6 +45,33 @@ export interface BingoCellProps extends VariantProps<typeof bingoCellVariants> {
 	readonly favorite?: boolean;
 	readonly locked?: boolean;
 	readonly onClick?: () => void | Promise<void>;
+	readonly claimedBy?: {
+		teamIndex: number;
+		teamColor: string;
+		claimedAt: Date;
+	};
+	readonly isWinning?: {
+		teamColor: string;
+	};
+}
+
+function formatTimeAgo(date: Date): string {
+	const now = new Date();
+	const diffMs = now.getTime() - date.getTime();
+	const diffSecs = Math.floor(diffMs / 1000);
+	const diffMins = Math.floor(diffSecs / 60);
+	const diffHours = Math.floor(diffMins / 60);
+	const diffDays = Math.floor(diffHours / 24);
+
+	if (diffSecs < 60) {
+		return `${diffSecs} second${diffSecs !== 1 ? 's' : ''} ago`;
+	} else if (diffMins < 60) {
+		return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+	} else if (diffHours < 24) {
+		return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+	} else {
+		return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+	}
 }
 
 export default function BingoCell({
@@ -52,6 +85,8 @@ export default function BingoCell({
 	favorite,
 	locked,
 	onClick,
+	claimedBy,
+	isWinning,
 }: BingoCellProps) {
 	const displaySlotItems =
 		property === "slotted" &&
@@ -89,9 +124,36 @@ export default function BingoCell({
 			<div
 				className={cn(
 					bingoCellVariants({ variant, property, action, className }),
-					title.length === 0 ? "bg-muted/30" : ""
+					title.length === 0 ? "bg-muted/30" : "",
+					(claimedBy || isWinning) ? "relative" : ""
 				)}
+				style={isWinning ? {
+					backgroundColor: isWinning.teamColor,
+					boxShadow: `0 0 20px ${isWinning.teamColor}90, 0 0 40px ${isWinning.teamColor}70, inset 0 0 20px ${isWinning.teamColor}50`,
+					borderColor: isWinning.teamColor,
+					borderWidth: '3px',
+				} : claimedBy ? {
+					boxShadow: `0 0 15px ${claimedBy.teamColor}80, 0 0 30px ${claimedBy.teamColor}60, 0 0 45px ${claimedBy.teamColor}40, inset 0 0 15px ${claimedBy.teamColor}30`,
+					borderColor: claimedBy.teamColor,
+					borderWidth: '2px',
+					background: `linear-gradient(135deg, ${claimedBy.teamColor}15 0%, ${claimedBy.teamColor}05 100%)`,
+				} : undefined}
 			>
+			{claimedBy && (
+				<TooltipProvider>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<div className="absolute top-1 right-1 z-10 cursor-help">
+								{/* Tooltip trigger - invisible but covers the slot items area */}
+								<div className="w-full h-full" />
+							</div>
+						</TooltipTrigger>
+						<TooltipContent>
+							<p>Claimed by Team {claimedBy.teamIndex + 1} {formatTimeAgo(claimedBy.claimedAt)}</p>
+						</TooltipContent>
+					</Tooltip>
+				</TooltipProvider>
+			)}
 			{locked && <div className="text-foreground text-sm font-bold">Locked</div>}
 			{!disabled && (
           <div className="flex flex-col content-center grow self-stretch text-foreground text-center text-xs font-normal rounded px-1">
