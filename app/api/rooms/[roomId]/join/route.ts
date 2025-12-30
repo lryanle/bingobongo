@@ -34,31 +34,38 @@ export async function POST(
     let userImage = session.user.image || "";
     
     // Try to get user from database, but fallback to session data
+    // Better Auth should create users automatically, so we'll just try to find it
+    // If it doesn't exist, we'll use session data (Better Auth will create it eventually)
     try {
       const user = await db.user.findById(session.user.id);
       if (user) {
         userName = user.name || userName;
         userImage = user.image || userImage;
       } else {
-        // User doesn't exist in database yet - create it from session data
-        // Better Auth should create users automatically, but if it doesn't, we'll create a minimal record
+        // User doesn't exist yet - Better Auth will create it automatically
+        // For now, just use session data
+        userName = session.user.name || "Unknown";
+        userImage = session.user.image || "";
+        
+        // Optionally, ensure user exists with stats initialized (using upsert to avoid duplicates)
+        // This is safe because the create method now uses upsert
         try {
           await db.user.create({
             _id: session.user.id as any,
-            name: session.user.name || null,
-            email: session.user.email || null,
-            image: session.user.image || null,
-          });
-          userName = session.user.name || "Unknown";
-          userImage = session.user.image || "";
+            name: session.user.name || undefined,
+            email: session.user.email || undefined,
+            image: session.user.image || undefined,
+          } as any);
         } catch (createError) {
-          // User might already exist or creation failed, use session data
-          console.log("Could not create user record, using session data", createError instanceof Error ? createError.message : String(createError));
+          // User might already exist (created by Better Auth), that's fine
+          // Just use session data
         }
       }
     } catch (error) {
       // User lookup failed, use session data
       console.log("User lookup failed, using session data", error instanceof Error ? error.message : String(error));
+      userName = session.user.name || "Unknown";
+      userImage = session.user.image || "";
     }
     
     if (existingPlayer) {

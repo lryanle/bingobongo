@@ -36,6 +36,16 @@ export interface User {
   email_verified?: Date;
   image?: string;
   created: Date;
+  stats?: {
+    gamesPlayed: number;
+    gamesWon: number;
+    totalItemsMarked: number;
+    totalBingos: number;
+    currentWinStreak: number;
+    longestWinStreak: number;
+    favoriteGameMode?: string;
+    lastPlayed?: Date;
+  };
 }
 
 // VerificationToken model

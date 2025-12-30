@@ -133,12 +133,34 @@ export const users = {
 
   async create(data: CreateUserInput): Promise<User> {
     const collection = await getCollection<User>("Users");
-    const result = await collection.insertOne({
-      _id: new ObjectId(),
-      created: new Date(),
-      ...data,
-    } as User);
-    const user = await collection.findOne({ _id: result.insertedId });
+    // If _id is provided, use it; otherwise generate a new ObjectId
+    const userId = (data as any)._id ? toObjectId((data as any)._id) : new ObjectId();
+    
+    // Remove _id from data if it exists to avoid conflicts
+    const { _id: _, ...dataWithoutId } = data as any;
+    
+    const userData = {
+      _id: userId,
+      created: data.created || new Date(),
+      stats: {
+        gamesPlayed: 0,
+        gamesWon: 0,
+        totalItemsMarked: 0,
+        totalBingos: 0,
+        currentWinStreak: 0,
+        longestWinStreak: 0,
+      },
+      ...dataWithoutId,
+    } as User;
+    
+    // Use upsert to avoid duplicates if user already exists
+    await collection.updateOne(
+      { _id: userId },
+      { $setOnInsert: userData },
+      { upsert: true }
+    );
+    
+    const user = await collection.findOne({ _id: userId });
     if (!user) throw new Error("Failed to create user");
     return user;
   },
@@ -157,6 +179,81 @@ export const users = {
   async delete(id: string | ObjectId): Promise<void> {
     const collection = await getCollection<User>("Users");
     await collection.deleteOne({ _id: toObjectId(id) });
+  },
+
+  async incrementStats(
+    id: string | ObjectId,
+    updates: {
+      gamesPlayed?: number;
+      gamesWon?: number;
+      totalItemsMarked?: number;
+      totalBingos?: number;
+      gameMode?: string;
+    }
+  ): Promise<User> {
+    const collection = await getCollection<User>("Users");
+    const userId = toObjectId(id);
+    
+    // Get current user to check win streak
+    const user = await collection.findOne({ _id: userId });
+    if (!user) throw new Error("User not found");
+    
+    const currentStats = user.stats || {
+      gamesPlayed: 0,
+      gamesWon: 0,
+      totalItemsMarked: 0,
+      totalBingos: 0,
+      currentWinStreak: 0,
+      longestWinStreak: 0,
+    };
+    
+    // Calculate new win streak
+    let newWinStreak = currentStats.currentWinStreak || 0;
+    let newLongestWinStreak = currentStats.longestWinStreak || 0;
+    
+    if (updates.gamesWon && updates.gamesWon > 0) {
+      // User won a game
+      newWinStreak = (currentStats.currentWinStreak || 0) + 1;
+      newLongestWinStreak = Math.max(newLongestWinStreak, newWinStreak);
+    } else if (updates.gamesPlayed && updates.gamesPlayed > 0 && !updates.gamesWon) {
+      // User played but didn't win (lost)
+      newWinStreak = 0;
+    }
+    
+    // Update stats
+    await collection.updateOne(
+      { _id: userId },
+      {
+        $inc: {
+          "stats.gamesPlayed": updates.gamesPlayed || 0,
+          "stats.gamesWon": updates.gamesWon || 0,
+          "stats.totalItemsMarked": updates.totalItemsMarked || 0,
+          "stats.totalBingos": updates.totalBingos || 0,
+        },
+        $set: {
+          "stats.currentWinStreak": newWinStreak,
+          "stats.longestWinStreak": newLongestWinStreak,
+          "stats.lastPlayed": new Date(),
+          ...(updates.gameMode ? { "stats.favoriteGameMode": updates.gameMode } : {}),
+        },
+        $setOnInsert: {
+          stats: {
+            gamesPlayed: updates.gamesPlayed || 0,
+            gamesWon: updates.gamesWon || 0,
+            totalItemsMarked: updates.totalItemsMarked || 0,
+            totalBingos: updates.totalBingos || 0,
+            currentWinStreak: newWinStreak,
+            longestWinStreak: newLongestWinStreak,
+            lastPlayed: new Date(),
+            ...(updates.gameMode ? { favoriteGameMode: updates.gameMode } : {}),
+          },
+        },
+      }
+    );
+    
+    const updatedUser = await collection.findOne({ _id: userId });
+    if (!updatedUser) throw new Error("Failed to update user stats");
+    return updatedUser;
   },
 };
 

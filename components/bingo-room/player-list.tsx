@@ -1,6 +1,7 @@
 "use client";
 
-import { Crown, Coins, User, LogOut, Users } from "lucide-react";
+import { useState } from "react";
+import { Crown, Coins, LogOut, Users, Trophy, Target, TrendingUp, Award } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,48 @@ interface PlayerListProps {
   readonly onKickPlayer?: (userId: string) => void;
 }
 
+interface UserStats {
+  gamesPlayed: number;
+  gamesWon: number;
+  totalItemsMarked: number;
+  totalBingos: number;
+  currentWinStreak: number;
+  longestWinStreak: number;
+  winRate: number;
+  avgItemsPerGame: number;
+  favoriteGameMode?: string;
+}
+
 export default function PlayerList({ players, ownerId, teams, currentUserId, selectedTeam, onTeamSelect, onKickPlayer }: PlayerListProps) {
+  const [userStats, setUserStats] = useState<Map<string, UserStats>>(new Map());
+  const [loadingStats, setLoadingStats] = useState<Set<string>>(new Set());
+
+  // Fetch stats for a user
+  const fetchUserStats = async (userId: string) => {
+    if (loadingStats.has(userId) || userStats.has(userId)) return;
+    
+    setLoadingStats((prev) => new Set(prev).add(userId));
+    try {
+      const response = await fetch(`/api/users/${userId}/stats`);
+      if (response.ok) {
+        const data = await response.json();
+        setUserStats((prev) => {
+          const next = new Map(prev);
+          next.set(userId, data.stats);
+          return next;
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching user stats:", error);
+    } finally {
+      setLoadingStats((prev) => {
+        const next = new Set(prev);
+        next.delete(userId);
+        return next;
+      });
+    }
+  };
+
   const getTeamColor = (teamIndex?: number) => {
     if (!teams || !Array.isArray(teams) || teams.length === 0) {
       return "#6b7280"; // gray
@@ -107,12 +149,19 @@ export default function PlayerList({ players, ownerId, teams, currentUserId, sel
           );
 
           // Wrap all players in popover for profile view
+          const stats = userStats.get(player.userId);
+          const isLoading = loadingStats.has(player.userId);
+          
           return (
-            <Popover key={player.id}>
+            <Popover key={player.id} onOpenChange={(open) => {
+              if (open && !stats && !isLoading) {
+                fetchUserStats(player.userId);
+              }
+            }}>
               <PopoverTrigger asChild>
                 <div className="cursor-pointer">{playerRow}</div>
               </PopoverTrigger>
-              <PopoverContent className="w-80">
+              <PopoverContent className="w-96">
                 <div className="flex flex-col gap-4">
                   {/* Profile Header */}
                   <div className="flex items-center gap-3">
@@ -145,9 +194,9 @@ export default function PlayerList({ players, ownerId, teams, currentUserId, sel
 
                   <Separator />
 
-                  {/* Stats */}
+                  {/* Current Match Stats */}
                   <div className="space-y-2">
-                    <h5 className="text-sm font-semibold text-foreground">Stats</h5>
+                    <h5 className="text-sm font-semibold text-foreground">Current Match</h5>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
                         <Coins className="w-4 h-4 text-muted-foreground" />
@@ -164,6 +213,67 @@ export default function PlayerList({ players, ownerId, teams, currentUserId, sel
                         </div>
                       </div>
                     </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Lifetime Stats */}
+                  <div className="space-y-2">
+                    <h5 className="text-sm font-semibold text-foreground">Lifetime Stats</h5>
+                    {isLoading ? (
+                      <div className="text-sm text-muted-foreground text-center py-2">
+                        Loading stats...
+                      </div>
+                    ) : stats ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                          <Trophy className="w-4 h-4 text-yellow-500" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs text-muted-foreground">Games Won</div>
+                            <div className="text-sm font-semibold">{stats.gamesWon}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                          <Target className="w-4 h-4 text-blue-500" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs text-muted-foreground">Games Played</div>
+                            <div className="text-sm font-semibold">{stats.gamesPlayed}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                          <TrendingUp className="w-4 h-4 text-green-500" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs text-muted-foreground">Win Rate</div>
+                            <div className="text-sm font-semibold">{stats.winRate}%</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                          <Award className="w-4 h-4 text-purple-500" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs text-muted-foreground">Win Streak</div>
+                            <div className="text-sm font-semibold">{stats.currentWinStreak}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                          <Coins className="w-4 h-4 text-orange-500" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs text-muted-foreground">Total Items</div>
+                            <div className="text-sm font-semibold">{stats.totalItemsMarked}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                          <Users className="w-4 h-4 text-red-500" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs text-muted-foreground">Avg/Game</div>
+                            <div className="text-sm font-semibold">{stats.avgItemsPerGame}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground text-center py-2">
+                        No stats available
+                      </div>
+                    )}
                   </div>
 
                   {/* Actions */}

@@ -82,6 +82,13 @@ export async function POST(
         previousTeam: claimResult.previousTeam,
       });
 
+      // Track stats: increment totalItemsMarked when item is claimed
+      if (claimResult.claimed) {
+        await db.user.incrementStats(session.user.id, {
+          totalItemsMarked: 1,
+        });
+      }
+
       // Get updated room to check for wins
       const updatedRoom = await db.room.findById(roomId);
       if (!updatedRoom) {
@@ -126,6 +133,29 @@ export async function POST(
             action: "win",
             team_index: player.team_index,
           });
+
+          // Track stats: increment gamesWon and totalBingos for winning team players
+          const allPlayers = await db.player.findByRoomId(roomId);
+          const winningTeamPlayers = allPlayers.filter((p) => p.team_index === player.team_index);
+          const losingTeamPlayers = allPlayers.filter((p) => p.team_index !== player.team_index);
+
+          // Update stats for winning team players
+          for (const winningPlayer of winningTeamPlayers) {
+            await db.user.incrementStats(winningPlayer.user_id.toString(), {
+              gamesPlayed: 1,
+              gamesWon: 1,
+              totalBingos: requiredBingos,
+              gameMode: room.gameMode,
+            });
+          }
+
+          // Update stats for losing team players (only gamesPlayed)
+          for (const losingPlayer of losingTeamPlayers) {
+            await db.user.incrementStats(losingPlayer.user_id.toString(), {
+              gamesPlayed: 1,
+              gameMode: room.gameMode,
+            });
+          }
 
           // Broadcast win event
           await pusherServer.trigger(`room-${roomId}`, "team-won", {
