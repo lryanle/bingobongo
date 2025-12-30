@@ -26,7 +26,6 @@ export function generateBingoData(
   teams: Array<{ name: string; color: string }>,
   itemTitles?: string[]
 ): BingoCardProps["bingoData"] {
-  const random = seededRandom(seed);
   const totalCells = size * size;
   const data: BingoCardProps["bingoData"] = [];
   
@@ -63,7 +62,7 @@ export function generateBingoData(
     
     data.push({
       title,
-      slotItems: slotItems as any,
+      slotItems,
       favorite: false,
       locked: false,
       disabled: false,
@@ -98,7 +97,7 @@ export function checkTeamBingoWin(
   }
 
   // Create a grid representation
-  const grid: (number | null)[][] = Array(gridSize).fill(null).map(() => Array(gridSize).fill(null));
+  const grid: (number | null)[][] = new Array(gridSize).fill(null).map(() => new Array(gridSize).fill(null));
   teamClaims.forEach((index) => {
     const row = Math.floor(index / gridSize);
     const col = index % gridSize;
@@ -112,7 +111,7 @@ export function checkTeamBingoWin(
 
   // Check rows
   for (let row = 0; row < gridSize; row++) {
-    if (grid[row].every((cell) => cell === teamIndex)) {
+    if (grid[row].every((cell) => cell === teamIndex) === true) {
       const cells: number[] = [];
       for (let col = 0; col < gridSize; col++) {
         cells.push(row * gridSize + col);
@@ -124,7 +123,7 @@ export function checkTeamBingoWin(
 
   // Check columns
   for (let col = 0; col < gridSize; col++) {
-    if (grid.map((row) => row[col]).every((cell) => cell === teamIndex)) {
+    if (grid.map((row) => row[col]).every((cell) => cell === teamIndex) === true) {
       const cells: number[] = [];
       for (let row = 0; row < gridSize; row++) {
         cells.push(row * gridSize + col);
@@ -141,11 +140,17 @@ export function checkTeamBingoWin(
   const diag2Cells: number[] = [];
   
   for (let i = 0; i < gridSize; i++) {
-    if (grid[i][i] !== teamIndex) diag1 = false;
-    else diag1Cells.push(i * gridSize + i);
+    if (grid[i][i] === teamIndex) {
+      diag1Cells.push(i * gridSize + i);
+    } else {
+      diag1 = false;
+    }
     
-    if (grid[i][gridSize - 1 - i] !== teamIndex) diag2 = false;
-    else diag2Cells.push(i * gridSize + (gridSize - 1 - i));
+    if (grid[i][gridSize - 1 - i] === teamIndex) {
+      diag2Cells.push(i * gridSize + (gridSize - 1 - i));
+    } else {
+      diag2 = false;
+    }
   }
   
   if (diag1) {
@@ -161,5 +166,48 @@ export function checkTeamBingoWin(
     hasWon: bingoCount >= requiredBingos,
     winningLines: bingoCount >= requiredBingos ? winningLines : undefined,
   };
+}
+
+// Check if a player has won classic bingo based on marked items (for matches page)
+export function checkBingoWin(markedItems: number[], gridSize: number, requiredBingos: number = 1): boolean {
+  if (markedItems.length < gridSize * requiredBingos) return false;
+  
+  // Create a grid representation
+  const grid: boolean[][] = new Array(gridSize).fill(null).map(() => new Array(gridSize).fill(false));
+  markedItems.forEach((index) => {
+    const row = Math.floor(index / gridSize);
+    const col = index % gridSize;
+    if (row < gridSize && col < gridSize) {
+      grid[row][col] = true;
+    }
+  });
+
+  let bingoCount = 0;
+
+  // Check rows
+  for (let row = 0; row < gridSize; row++) {
+    if (grid[row].every(Boolean)) {
+      bingoCount++;
+    }
+  }
+
+  // Check columns
+  for (let col = 0; col < gridSize; col++) {
+    if (grid.map((row) => row[col]).every(Boolean)) {
+      bingoCount++;
+    }
+  }
+
+  // Check diagonals
+  let diag1 = true;
+  let diag2 = true;
+  for (let i = 0; i < gridSize; i++) {
+    if (!grid[i][i]) diag1 = false;
+    if (!grid[i][gridSize - 1 - i]) diag2 = false;
+  }
+  if (diag1) bingoCount++;
+  if (diag2) bingoCount++;
+
+  return bingoCount >= requiredBingos;
 }
 

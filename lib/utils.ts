@@ -5,105 +5,117 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-function convertShortHexToLong(hex: string) {
-  if(/^#[0-9A-F]{3}$/i.test(hex)) {
+function convertShortHexToLong(hex: string): string {
+  if (/^#[0-9A-F]{3}$/i.test(hex)) {
     return '#' + hex.substring(1).split('').map(char => char + char).join('');
-  } else {
-    return hex;
   }
+  return hex;
 }
 
-export const getTextColor = (hex: string) => {
-  hex = convertShortHexToLong(hex);
+export const getTextColor = (hex: string): "black" | "white" => {
+  const normalizedHex = convertShortHexToLong(hex);
   const threshold = 130;
   
-  function cutHex(h: string) {return (h.charAt(0)=="#") ? h.substring(1,7):h}
-  const cBrightness = ((parseInt((cutHex(hex)).substring(0,2),16) * 299) + (parseInt((cutHex(hex)).substring(2,4),16) * 587) + (parseInt((cutHex(hex)).substring(4,6),16) * 114)) / 1000;
-  if (cBrightness > threshold) { return "black"; } else { return "white"; }	
+  const hexWithoutHash = normalizedHex.startsWith("#") 
+    ? normalizedHex.substring(1, 7) 
+    : normalizedHex;
+  
+  const r = Number.parseInt(hexWithoutHash.substring(0, 2), 16);
+  const g = Number.parseInt(hexWithoutHash.substring(2, 4), 16);
+  const b = Number.parseInt(hexWithoutHash.substring(4, 6), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  
+  return brightness > threshold ? "black" : "white";
 }
 
-export const modifyColor = (color: string, percent: number) => {
-  color = convertShortHexToLong(color);
-  var num = parseInt(color.replace("#",""),16),
-  amt = Math.round(2.55 * percent),
-  R = (num >> 16) + amt,
-  B = (num >> 8 & 0x00FF) + amt,
-  G = (num & 0x0000FF) + amt;
-  return "#" + (0x1000000 + (R<255?R<1?0:R:255)*0x10000 + (B<255?B<1?0:B:255)*0x100 + (G<255?G<1?0:G:255)).toString(16).slice(1);
+export const modifyColor = (color: string, percent: number): string => {
+  const normalizedColor = convertShortHexToLong(color);
+  const num = parseInt(normalizedColor.replace("#", ""), 16);
+  const amt = Math.round(2.55 * percent);
+  
+  const R = Math.max(0, Math.min(255, (num >> 16) + amt));
+  const G = Math.max(0, Math.min(255, (num >> 8 & 0x00FF) + amt));
+  const B = Math.max(0, Math.min(255, (num & 0x0000FF) + amt));
+  
+  return `#${(0x1000000 + (R * 0x10000) + (G * 0x100) + B).toString(16).slice(1)}`;
 }
 
-export const hexToRgb = (hex: string) => {
-  hex = hex.replace(/^#/, '');
+export const hexToRgb = (hex: string): string => {
+  let normalizedHex = hex.replace(/^#/, '');
 
-  if (hex.length === 3) {
-    hex = hex.split('').map(char => char + char).join('');
+  if (normalizedHex.length === 3) {
+    normalizedHex = normalizedHex.split('').map(char => char + char).join('');
   }
 
-  if (hex.length !== 6 || !/^[0-9A-Fa-f]{6}$/.test(hex)) {
+  if (normalizedHex.length !== 6 || !/^[0-9A-Fa-f]{6}$/.test(normalizedHex)) {
     throw new Error('Invalid HEX color.');
   }
 
-  return `${parseInt(hex.slice(0, 2), 16)},${parseInt(hex.slice(2, 4), 16)},${parseInt(hex.slice(4, 6), 16)}`;
+  const r = parseInt(normalizedHex.slice(0, 2), 16);
+  const g = parseInt(normalizedHex.slice(2, 4), 16);
+  const b = parseInt(normalizedHex.slice(4, 6), 16);
+  
+  return `${r},${g},${b}`;
 }
 
-type SanitizeInput = string;
-export const sanitize = <T extends SanitizeInput>(input: T): T extends SanitizeInput ? string : never => {
-  const map: { [key: string]: string } = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#x27;',
-    "/": '&#x2F;',
-  };
-  const reg = /[&<>"'/]/ig;
-  return (input as SanitizeInput).replace(reg, (match) => (map[match])) as any;
+const HTML_ESCAPE_MAP: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#x27;',
+  "/": '&#x2F;',
+} as const;
+
+const HTML_ESCAPE_REGEX = /[&<>"'/]/gi;
+
+export const sanitize = (input: string): string => {
+  return input.replace(HTML_ESCAPE_REGEX, (match) => HTML_ESCAPE_MAP[match] || match);
 }
 
-export const isJson = (str: any) => {
+export const isJson = (str: unknown): boolean => {
   if (typeof str !== 'string') return false;
-    try {
-        const result = JSON.parse(str);
-        const type = Object.prototype.toString.call(result);
-        return type === '[object Object]' 
-            || type === '[object Array]';
-    } catch (err) {
-        return false;
-    }
+  try {
+    const result = JSON.parse(str);
+    const type = Object.prototype.toString.call(result);
+    return type === '[object Object]' || type === '[object Array]';
+  } catch {
+    return false;
+  }
 }
 
-export const getAllValues = (obj: any) => {
-  let values: string[] = [];
+export const getAllValues = (obj: unknown): string[] => {
+  const values: string[] = [];
 
-  function extractValues(item: any) {
-      if (Array.isArray(item)) {
-          item.forEach(subItem => extractValues(subItem));
-      } else if (typeof item === 'object' && item !== null) {
-          Object.values(item).forEach(subItem => extractValues(subItem));
-      } else {
-          values.push(item);
-      }
+  function extractValues(item: unknown): void {
+    if (Array.isArray(item)) {
+      item.forEach(subItem => extractValues(subItem));
+    } else if (typeof item === 'object' && item !== null) {
+      Object.values(item).forEach(subItem => extractValues(subItem));
+    } else if (typeof item === 'string') {
+      values.push(item);
+    }
   }
 
   extractValues(obj);
   return values;
 }
 
-export const base64ToBytes = (base64:any) => {
+export const base64ToBytes = (base64: string): Uint8Array => {
   const binString = atob(base64);
-  return Uint8Array.from(binString, (m: any) => m.codePointAt(0));
+  return Uint8Array.from(binString, (m) => m.codePointAt(0) ?? 0);
 }
 
-export const bytesToBase64 = (bytes: any) => {
+export const bytesToBase64 = (bytes: Uint8Array): string => {
   const binString = String.fromCodePoint(...bytes);
   return btoa(binString);
 }
 
-const capFirst = (string: string) => {
-  return string.charAt(0).toUpperCase() + string.slice(1);
+const capFirst = (str: string): string => {
+  return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-const getRandomInt = (min: number, max: number) => {
+const getRandomInt = (min: number, max: number): number => {
   return Math.floor(Math.random() * (max - min)) + min;
 }
 

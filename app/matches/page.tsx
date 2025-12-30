@@ -6,68 +6,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Users, Activity, Trophy, XCircle, Clock, Play } from "lucide-react";
 import { db } from "@/lib/db";
-import { getGridSize } from "@/lib/bingo-utils";
+import { getGridSize, checkBingoWin } from "@/lib/bingo-utils";
+
+type MatchStatus = "not_started" | "in_progress" | "finished_won" | "finished_lost";
+
+interface TeamStats {
+  name: string;
+  color: string;
+  playerCount: number;
+  totalMarked: number;
+}
 
 interface Match {
   id: string;
   roomName: string;
   gameMode: string;
   boardSize: number;
-  status: "not_started" | "in_progress" | "finished_won" | "finished_lost";
+  status: MatchStatus;
   ownerName: string;
   ownerId: string;
   playerCount: number;
   activityCount: number;
   lastUpdated: string;
-  teams: Array<{
-    name: string;
-    color: string;
-    playerCount: number;
-    totalMarked: number;
-  }>;
-}
-
-// Helper to check if a player has won (for classic bingo mode)
-function checkBingoWin(markedItems: number[], gridSize: number, requiredBingos: number = 1): boolean {
-  if (markedItems.length < gridSize * requiredBingos) return false;
-  
-  // Create a grid representation
-  const grid: boolean[][] = Array(gridSize).fill(null).map(() => Array(gridSize).fill(false));
-  markedItems.forEach((index) => {
-    const row = Math.floor(index / gridSize);
-    const col = index % gridSize;
-    if (row < gridSize && col < gridSize) {
-      grid[row][col] = true;
-    }
-  });
-
-  let bingoCount = 0;
-
-  // Check rows
-  for (let row = 0; row < gridSize; row++) {
-    if (grid[row].every((cell) => cell)) {
-      bingoCount++;
-    }
-  }
-
-  // Check columns
-  for (let col = 0; col < gridSize; col++) {
-    if (grid.map((row) => row[col]).every((cell) => cell)) {
-      bingoCount++;
-    }
-  }
-
-  // Check diagonals
-  let diag1 = true;
-  let diag2 = true;
-  for (let i = 0; i < gridSize; i++) {
-    if (!grid[i][i]) diag1 = false;
-    if (!grid[i][gridSize - 1 - i]) diag2 = false;
-  }
-  if (diag1) bingoCount++;
-  if (diag2) bingoCount++;
-
-  return bingoCount >= requiredBingos;
+  teams: TeamStats[];
 }
 
 // Determine match status
@@ -77,7 +38,7 @@ function getMatchStatus(
   gameMode: string,
   boardSize: number,
   currentUserId?: string
-): { status: "not_started" | "in_progress" | "finished_won" | "finished_lost"; winningTeam?: number } {
+): { status: MatchStatus; winningTeam?: number } {
   // Not started: No players
   if (players.length === 0) {
     return { status: "not_started" };
@@ -85,7 +46,7 @@ function getMatchStatus(
 
   // Check for win activities
   const winActivity = activities.find((a) => a.action === "win" || a.action === "bingo");
-  if (winActivity && winActivity.teamIndex !== undefined) {
+  if (winActivity?.teamIndex !== undefined) {
     // Game finished - determine if current user won or lost
     const currentPlayer = players.find((p) => p.teamIndex === winActivity.teamIndex);
     if (currentPlayer) {
@@ -97,8 +58,8 @@ function getMatchStatus(
   if (gameMode.includes("classic")) {
     const gridSize = getGridSize(boardSize);
     // Extract required bingos from gameMode (e.g., "classic-3" means 3 bingos required)
-    const modeMatch = gameMode.match(/classic-(\d+)/);
-    const requiredBingos = modeMatch ? parseInt(modeMatch[1], 10) : 1;
+    const modeMatch = /classic-(\d+)/.exec(gameMode);
+    const requiredBingos = modeMatch ? Number.parseInt(modeMatch[1], 10) : 1;
 
     // Check each team for wins
     const teamWins = new Map<number, boolean>();
@@ -180,7 +141,7 @@ async function getMatches(currentUserId: string, session?: { user?: { id: string
       const userTeamIndex = currentPlayer?.team_index;
 
       // Determine if user won or lost
-      let status: "not_started" | "in_progress" | "finished_won" | "finished_lost" = matchStatus.status;
+      let status: MatchStatus = matchStatus.status;
       if (matchStatus.status === "finished_won" && matchStatus.winningTeam !== undefined) {
         if (userTeamIndex === matchStatus.winningTeam) {
           status = "finished_won";
@@ -220,7 +181,7 @@ async function getMatches(currentUserId: string, session?: { user?: { id: string
   return matches;
 }
 
-function getStatusBadge(status: Match["status"]) {
+function getStatusBadge(status: MatchStatus) {
   switch (status) {
     case "not_started":
       return (
@@ -266,16 +227,21 @@ function formatDate(dateString: string): string {
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
   
-  return date.toLocaleDateString(undefined, {
+  const needsYear = date.getFullYear() === now.getFullYear();
+  const options: Intl.DateTimeFormatOptions = {
     month: "short",
     day: "numeric",
-    year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
-  });
+  };
+  if (!needsYear) {
+    options.year = "numeric";
+  }
+  return date.toLocaleDateString(undefined, options);
 }
 
 export default async function MatchesPage() {
   const authInstance = await auth;
-  const session = await authInstance.api.getSession({ headers: await headers() });
+  const headersList = await headers();
+  const session = await authInstance.api.getSession({ headers: headersList });
   
   if (!session?.user?.id) {
     redirect("/");
@@ -317,7 +283,13 @@ export default async function MatchesPage() {
                   <CardDescription className="flex items-center gap-2">
                     <span>{match.gameMode}</span>
                     <span>•</span>
-                    <span>{match.boardSize === 0 ? "5x5" : match.boardSize === 50 ? "7x7" : "10x10"}</span>
+                    <span>
+                      {(() => {
+                        if (match.boardSize === 0) return "5x5";
+                        if (match.boardSize === 50) return "7x7";
+                        return "10x10";
+                      })()}
+                    </span>
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -336,9 +308,9 @@ export default async function MatchesPage() {
                     <div className="space-y-2">
                       <p className="text-sm font-medium">Teams:</p>
                       <div className="space-y-1">
-                        {match.teams.map((team, index) => (
+                        {match.teams.map((team) => (
                           <div
-                            key={index}
+                            key={`${team.name}-${team.color}`}
                             className="flex items-center justify-between text-sm p-2 rounded"
                             style={{ backgroundColor: `${team.color}20` }}
                           >
