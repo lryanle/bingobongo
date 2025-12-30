@@ -314,7 +314,8 @@ export default function PlayerList({ players, ownerId, teams, currentUserId, sel
                   )}
 
                   {/* Kick Button (Owner only, not for self) */}
-                  {isOwner && ownerId === currentUserId && !isUser && onKickPlayer && (
+                  {/* Show kick button if current user is owner AND this player is not the current user */}
+                  {ownerId === currentUserId && !isUser && onKickPlayer && (
                     <>
                       <Separator />
                       <Button

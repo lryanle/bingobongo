@@ -220,36 +220,42 @@ export const users = {
       newWinStreak = 0;
     }
     
-    // Update stats
-    await collection.updateOne(
-      { _id: userId },
-      {
-        $inc: {
-          "stats.gamesPlayed": updates.gamesPlayed || 0,
-          "stats.gamesWon": updates.gamesWon || 0,
-          "stats.totalItemsMarked": updates.totalItemsMarked || 0,
-          "stats.totalBingos": updates.totalBingos || 0,
-        },
-        $set: {
-          "stats.currentWinStreak": newWinStreak,
-          "stats.longestWinStreak": newLongestWinStreak,
-          "stats.lastPlayed": new Date(),
-          ...(updates.gameMode ? { "stats.favoriteGameMode": updates.gameMode } : {}),
-        },
-        $setOnInsert: {
-          stats: {
-            gamesPlayed: updates.gamesPlayed || 0,
-            gamesWon: updates.gamesWon || 0,
-            totalItemsMarked: updates.totalItemsMarked || 0,
-            totalBingos: updates.totalBingos || 0,
-            currentWinStreak: newWinStreak,
-            longestWinStreak: newLongestWinStreak,
-            lastPlayed: new Date(),
-            ...(updates.gameMode ? { favoriteGameMode: updates.gameMode } : {}),
-          },
-        },
-      }
-    );
+    // Build update operations - separate $inc and $set to avoid conflicts
+    const incOperations: Record<string, number> = {};
+    const setOperations: Record<string, unknown> = {};
+    
+    // Only include $inc operations for fields that need incrementing
+    if (updates.gamesPlayed) incOperations["stats.gamesPlayed"] = updates.gamesPlayed;
+    if (updates.gamesWon) incOperations["stats.gamesWon"] = updates.gamesWon;
+    if (updates.totalItemsMarked) incOperations["stats.totalItemsMarked"] = updates.totalItemsMarked;
+    if (updates.totalBingos) incOperations["stats.totalBingos"] = updates.totalBingos;
+    
+    // Set operations for calculated/derived fields
+    setOperations["stats.currentWinStreak"] = newWinStreak;
+    setOperations["stats.longestWinStreak"] = newLongestWinStreak;
+    setOperations["stats.lastPlayed"] = new Date();
+    if (updates.gameMode) {
+      setOperations["stats.favoriteGameMode"] = updates.gameMode;
+    }
+    
+    // Ensure stats object exists if it doesn't
+    if (!user.stats) {
+      setOperations["stats.gamesPlayed"] = currentStats.gamesPlayed;
+      setOperations["stats.gamesWon"] = currentStats.gamesWon;
+      setOperations["stats.totalItemsMarked"] = currentStats.totalItemsMarked;
+      setOperations["stats.totalBingos"] = currentStats.totalBingos;
+    }
+    
+    // Build the update document
+    const updateDoc: Record<string, unknown> = {};
+    if (Object.keys(incOperations).length > 0) {
+      updateDoc.$inc = incOperations;
+    }
+    if (Object.keys(setOperations).length > 0) {
+      updateDoc.$set = setOperations;
+    }
+    
+    await collection.updateOne({ _id: userId }, updateDoc);
     
     const updatedUser = await collection.findOne({ _id: userId });
     if (!updatedUser) throw new Error("Failed to update user stats");
@@ -376,7 +382,7 @@ export const rooms = {
     cellIndex: number,
     teamIndex: number,
     userId: string | ObjectId
-  ): Promise<{ claimed: boolean; previousTeam?: number }> {
+  ): Promise<{ claimed: boolean; previousTeam?: number; updatedRoom: Room }> {
     const collection = await getCollection<Room>("rooms");
     const room = await collection.findOne({ _id: toObjectId(roomId) });
     
@@ -390,35 +396,45 @@ export const rooms = {
       (item) => item.cellIndex === cellIndex && item.teamIndex === teamIndex
     );
     
+    let updatedItems: typeof claimedItems;
+    let claimed: boolean;
+    
     // If same team already claimed, unclaim it (toggle)
     if (existingTeamClaims.length > 0) {
-      const updatedItems = claimedItems.filter(
+      updatedItems = claimedItems.filter(
         (item) => !(item.cellIndex === cellIndex && item.teamIndex === teamIndex)
       );
-      await collection.updateOne(
-        { _id: toObjectId(roomId) },
-        { $set: { claimedItems: updatedItems, last_updated: new Date() } }
-      );
-      return { claimed: false, previousTeam: teamIndex };
+      claimed = false;
+    } else {
+      // Add claim for this team (multiple teams can claim the same cell)
+      updatedItems = [
+        ...claimedItems,
+        {
+          cellIndex,
+          teamIndex,
+          claimedAt: new Date(),
+          claimedBy: toObjectId(userId),
+        },
+      ];
+      claimed = true;
     }
     
-    // Add claim for this team (multiple teams can claim the same cell)
-    const updatedItems = [
-      ...claimedItems,
-      {
-        cellIndex,
-        teamIndex,
-        claimedAt: new Date(),
-        claimedBy: toObjectId(userId),
-      },
-    ];
-    
-    await collection.updateOne(
+    // Use findOneAndUpdate to get the updated document in one operation
+    const result = await collection.findOneAndUpdate(
       { _id: toObjectId(roomId) },
-      { $set: { claimedItems: updatedItems, last_updated: new Date() } }
+      { $set: { claimedItems: updatedItems, last_updated: new Date() } },
+      { returnDocument: "after" }
     );
     
-    return { claimed: true };
+    if (!result?.value) {
+      throw new Error("Failed to update room");
+    }
+    
+    return { 
+      claimed, 
+      previousTeam: claimed ? undefined : teamIndex,
+      updatedRoom: result.value,
+    };
   },
 };
 

@@ -47,9 +47,12 @@ export async function PUT(
       );
     }
 
+    // Filter out empty strings before processing to ensure only valid items are used
+    const filteredItems = bingoItems.filter((item: string) => item && item.trim() !== "");
+    
     // If more items than needed, randomly select using seed
-    let finalItems: string[] = bingoItems;
-    if (bingoItems.length > requiredItems) {
+    let finalItems: string[] = filteredItems;
+    if (filteredItems.length > requiredItems) {
       const seed = room.bingoSeed;
       let hash = 0;
       for (let i = 0; i < seed.length; i++) {
@@ -63,12 +66,12 @@ export async function PUT(
         return state / 233280;
       };
       
-      // Shuffle and select exactly requiredItems
-      const shuffled = [...bingoItems].sort(() => random() - 0.5);
+      // Shuffle filtered items and select exactly requiredItems
+      const shuffled = [...filteredItems].sort(() => random() - 0.5);
       finalItems = shuffled.slice(0, requiredItems);
-    } else if (bingoItems.length === requiredItems) {
-      // Exact amount - use all items
-      finalItems = [...bingoItems];
+    } else if (filteredItems.length === requiredItems) {
+      // Exact amount - use all valid items
+      finalItems = [...filteredItems];
     }
     // If fewer items, validation above will have caught it
 

@@ -439,17 +439,40 @@ export default function BingoRoom({
       // Ignore Pusher events for our own actions (we already have server response)
       const isOwnAction = data.userId === session.data?.user?.id;
       const optimisticUpdate = optimisticUpdates.current.get(data.cellIndex);
+      const serverResponse = serverResponses.current.get(data.cellIndex);
       
-      if (isOwnAction && optimisticUpdate) {
-        // This is our own action and we have an optimistic update
-        // The server response already updated the state, so ignore this Pusher event
+      // If this is our own action, check if Pusher event matches server response
+      if (isOwnAction) {
+        // If we have a server response and it matches the Pusher event, ignore it
+        // This prevents flicker when the server response already updated the state
+        if (serverResponse && 
+            serverResponse.claimed === data.claimed && 
+            serverResponse.teamIndex === data.teamIndex) {
+          return;
+        }
+        // If we still have an optimistic update, the server hasn't responded yet
+        // But we'll still ignore our own Pusher events to prevent duplicates
+        if (optimisticUpdate) {
+          return;
+        }
+        // If no server response yet and no optimistic update, something went wrong
+        // But still ignore to be safe
         return;
       }
       
       // Update claimed items for other users' actions
       // Support multiple teams claiming the same cell
       setClaimedItems((prev) => {
+        // Check if this exact claim already exists to prevent duplicates
+        const existingClaim = prev.find(
+          (item) => item.cellIndex === data.cellIndex && item.teamIndex === data.teamIndex
+        );
+        
         if (data.claimed) {
+          // If claim already exists, don't add it again (prevents flicker)
+          if (existingClaim) {
+            return prev;
+          }
           // Add claim for this team (multiple teams can claim same cell)
           return [
             ...prev,
@@ -468,26 +491,25 @@ export default function BingoRoom({
         }
       });
       
-      // Refresh players and activities
-      fetch(`/api/rooms/${roomId}/players`)
-        .then((res) => {
-          if (!res.ok) {
-            throw new Error(`Failed to fetch players: ${res.status}`);
-          }
-          return res.json();
-        })
-        .then((newPlayers) => setPlayers(newPlayers))
-        .catch((err) => console.error("Error fetching players:", err));
+      // Optimistically add activity to feed (no need to refetch)
+      setActivities((prev) => {
+        const newActivity = {
+          id: `temp-${Date.now()}-${Math.random()}`,
+          userId: data.userId,
+          userName: data.userName,
+          action: data.claimed ? "claimed" : "unclaimed",
+          itemTitle: data.itemTitle,
+          cellIndex: data.cellIndex,
+          teamIndex: data.teamIndex,
+          createdAt: new Date().toISOString(),
+        };
+        // Add to beginning and limit to 50
+        return [newActivity, ...prev].slice(0, 50);
+      });
       
-      fetch(`/api/rooms/${roomId}/activities?limit=50`)
-        .then((res) => {
-          if (!res.ok) {
-            throw new Error(`Failed to fetch activities: ${res.status}`);
-          }
-          return res.json();
-        })
-        .then((newActivities) => setActivities(newActivities))
-        .catch((err) => console.error("Error fetching activities:", err));
+      // Only refetch players if needed (debounced or on specific events)
+      // For now, skip refetching players as it's not critical for claiming
+      // Players list doesn't change when items are claimed
     });
 
     // Listen for item-marked events (lockout mode)
@@ -634,7 +656,7 @@ export default function BingoRoom({
     };
   }, [roomId, session.data?.user?.id]);
 
-  // Cleanup old optimistic updates periodically to prevent memory leaks
+  // Cleanup old optimistic updates and server responses periodically to prevent memory leaks
   useEffect(() => {
     const cleanupInterval = setInterval(() => {
       const now = Date.now();
@@ -642,6 +664,13 @@ export default function BingoRoom({
       optimisticUpdates.current.forEach((value, key) => {
         if (now - value.timestamp > maxAge) {
           optimisticUpdates.current.delete(key);
+        }
+      });
+      // Clean up old server responses (keep for 10 seconds to handle delayed Pusher events)
+      const serverResponseMaxAge = 10000; // 10 seconds
+      serverResponses.current.forEach((value, key) => {
+        if (now - value.timestamp > serverResponseMaxAge) {
+          serverResponses.current.delete(key);
         }
       });
     }, 2000); // Check every 2 seconds
@@ -654,6 +683,8 @@ export default function BingoRoom({
   const pendingCellRequests = useRef<Set<number>>(new Set());
   // Track cells that we've optimistically updated to ignore Pusher events for our own actions
   const optimisticUpdates = useRef<Map<number, { timestamp: number; teamIndex: number }>>(new Map());
+  // Track server responses to compare against Pusher events and prevent duplicates
+  const serverResponses = useRef<Map<number, { claimed: boolean; teamIndex: number; timestamp: number }>>(new Map());
   
   const handleCellClick = async (index: number) => {
     // Prevent concurrent requests for the same cell
@@ -718,15 +749,27 @@ export default function BingoRoom({
         .then(async (response) => {
           if (response.ok) {
             const data = await response.json();
+            
+            // Store server response to compare against Pusher events
+            // This helps us ignore Pusher events that match what we already have
+            const wasClaimed = data.claimed;
+            if (currentPlayer.teamIndex !== undefined) {
+              serverResponses.current.set(index, {
+                claimed: wasClaimed,
+                teamIndex: currentPlayer.teamIndex,
+                timestamp: Date.now(),
+              });
+            }
+            
+            // Clear optimistic update tracking BEFORE updating state
+            // This prevents Pusher events from being processed for this action
+            optimisticUpdates.current.delete(index);
+            
             // Update with server response (source of truth)
+            // Use server response directly to avoid any race conditions
             if (data.claimedItems) {
               setClaimedItems(data.claimedItems);
             }
-            // Clear optimistic update tracking after server confirms
-            // Wait a bit to allow any delayed Pusher event to arrive and be ignored
-            setTimeout(() => {
-              optimisticUpdates.current.delete(index);
-            }, 2000);
             
             // Handle win detection
             if (data.winDetected && data.winningTeam !== undefined) {

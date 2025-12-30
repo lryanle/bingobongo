@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { getGridSize } from "@/lib/bingo-utils";
 import { NextResponse } from "next/server";
+import { pusherServer } from "@/lib/pusher";
 
 // This is a hypothetical API route function
 export async function POST(request: Request) {
@@ -68,11 +69,13 @@ export async function POST(request: Request) {
             }
             
             // Randomly select items if more than needed, using bingo seed for randomness
+            // Filter out empty strings before shuffling to ensure only valid items are selected
+            const filteredItems = providedItems.filter((item: string) => item && item.trim() !== "");
             let selectedItems: string[] = [];
-            if (providedItems.length === requiredItems) {
-              // Exact amount - use all items
-              selectedItems = [...providedItems];
-            } else if (providedItems.length > requiredItems) {
+            if (filteredItems.length === requiredItems) {
+              // Exact amount - use all valid items
+              selectedItems = [...filteredItems];
+            } else if (filteredItems.length > requiredItems) {
               // More than needed - randomly select using seed
               const seed = roomData.bingoSeed;
               let hash = 0;
@@ -87,8 +90,8 @@ export async function POST(request: Request) {
                 return state / 233280;
               };
               
-              // Shuffle and select exactly requiredItems
-              const shuffled = [...providedItems].sort(() => random() - 0.5);
+              // Shuffle filtered items and select exactly requiredItems
+              const shuffled = [...filteredItems].sort(() => random() - 0.5);
               selectedItems = shuffled.slice(0, requiredItems);
             } else {
               // This should never happen due to validation above, but handle gracefully
@@ -110,6 +113,41 @@ export async function POST(request: Request) {
               claimedItems: [], // Start with no claimed items
               gameFinished: false,
             });
+
+            // Automatically add the room owner as a player (team 0 by default)
+            try {
+              // Get user info for activity and broadcast
+              const user = await db.user.findById(userId).catch(() => null);
+              const userName = user?.name || session.user.name || "Unknown";
+              
+              // Create player entry for the owner
+              await db.player.create({
+                room_id: roomObj._id.toString(),
+                user_id: userId,
+                team_index: 0, // Default to team 0
+                marked_items: [],
+              });
+
+              // Create activity for owner joining
+              await db.activity.create({
+                room_id: roomObj._id.toString(),
+                user_id: userId,
+                user_name: userName,
+                action: "joined",
+                team_index: 0,
+              });
+
+              // Broadcast player joined (non-blocking)
+              pusherServer.trigger(`room-${roomObj._id.toString()}`, "player-joined", {
+                userId: userId,
+                userName: userName,
+              }).catch((err) => {
+                console.error("Error broadcasting player joined:", err);
+              });
+            } catch (playerError) {
+              // Log error but don't fail room creation
+              console.error("Error adding owner as player:", playerError);
+            }
 
             return new Response(roomObj._id.toString(), { status: 200 });
           } catch (e) {

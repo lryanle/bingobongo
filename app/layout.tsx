@@ -80,7 +80,7 @@ export const metadata: Metadata = {
 			},
 		],
 	},
-	manifest: `${siteConfig.url}/site.webmanifest`,
+	manifest: "/site.webmanifest",
 };
 
 export default async function RootLayout({

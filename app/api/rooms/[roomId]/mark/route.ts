@@ -25,9 +25,11 @@ export async function POST(
       return NextResponse.json({ error: "Cell index is required" }, { status: 400 });
     }
 
-    // Check if player exists and get room
-    const player = await db.player.findByRoomAndUserId(roomId, session.user.id);
-    const room = await db.room.findById(roomId);
+    // Check if player exists and get room (parallel queries for performance)
+    const [player, room] = await Promise.all([
+      db.player.findByRoomAndUserId(roomId, session.user.id),
+      db.room.findById(roomId),
+    ]);
     
     if (!player) {
       return NextResponse.json({ error: "Player not in room" }, { status: 403 });
@@ -48,7 +50,35 @@ export async function POST(
     // For basic bingo (non-lockout), use team-based claiming
     const isLockout = room.gameMode.includes("lockout");
     
-    if (!isLockout) {
+    if (isLockout) {
+      // Lockout mode - use old system (per-player marking)
+      const { player: updatedPlayer, wasAdded } = await db.player.toggleMarkedItem(
+        roomId,
+        session.user.id,
+        cellIndex
+      );
+
+      const user = await db.user.findById(session.user.id);
+      await db.activity.create({
+        room_id: roomId,
+        user_id: session.user.id,
+        user_name: user?.name || "Unknown",
+        action: wasAdded ? "marked" : "unmarked",
+        item_title: itemTitle,
+        cell_index: cellIndex,
+        team_index: updatedPlayer.team_index,
+      });
+
+      await pusherServer.trigger(`room-${roomId}`, "item-marked", {
+        userId: session.user.id,
+        userName: user?.name || "Unknown",
+        cellIndex,
+        itemTitle,
+        marked: wasAdded,
+      });
+
+      return NextResponse.json({ success: true, markedItems: updatedPlayer.marked_items });
+    } else {
       // Team-based claiming system
       const claimResult = await db.room.claimItem(
         roomId,
@@ -57,11 +87,12 @@ export async function POST(
         session.user.id
       );
 
-      const user = await db.user.findById(session.user.id);
-      // Use session data as fallback if user not found in database
+      // Get user info (non-blocking, fallback to session)
+      const user = await db.user.findById(session.user.id).catch(() => null);
       const userName = user?.name || session.user.name || "Unknown";
       
-      await db.activity.create({
+      // Create activity and broadcast in parallel (non-blocking for stats)
+      const activityPromise = db.activity.create({
         room_id: roomId,
         user_id: session.user.id,
         user_name: userName,
@@ -71,8 +102,7 @@ export async function POST(
         team_index: player.team_index,
       });
 
-      // Broadcast item claimed/unclaimed
-      await pusherServer.trigger(`room-${roomId}`, "item-claimed", {
+      const broadcastPromise = pusherServer.trigger(`room-${roomId}`, "item-claimed", {
         userId: session.user.id,
         userName: userName,
         cellIndex,
@@ -82,18 +112,22 @@ export async function POST(
         previousTeam: claimResult.previousTeam,
       });
 
-      // Track stats: increment totalItemsMarked when item is claimed
-      if (claimResult.claimed) {
-        await db.user.incrementStats(session.user.id, {
-          totalItemsMarked: 1,
-        });
-      }
+      // Track stats asynchronously (fire and forget) to avoid blocking the response
+      const statsPromise = claimResult.claimed
+        ? db.user.incrementStats(session.user.id, {
+            totalItemsMarked: 1,
+          }).catch((err) => {
+            // Log but don't fail the request
+            console.error("Error updating stats:", err);
+          })
+        : Promise.resolve();
 
-      // Get updated room to check for wins
-      const updatedRoom = await db.room.findById(roomId);
-      if (!updatedRoom) {
-        return NextResponse.json({ error: "Room not found" }, { status: 404 });
-      }
+      // Wait for activity and broadcast, but don't wait for stats
+      await Promise.all([activityPromise, broadcastPromise]);
+      void statsPromise; // Fire and forget
+
+      // Use the updated room from claimItem (already fetched, no need to query again)
+      const updatedRoom = claimResult.updatedRoom;
 
       // Check for win if item was claimed (not unclaimed) and game isn't finished
       let winDetected = false;
@@ -103,8 +137,8 @@ export async function POST(
       if (claimResult.claimed && !updatedRoom.gameFinished && room.gameMode.includes("classic")) {
         const gridSize = getGridSize(room.boardSize);
         // Extract required bingos from gameMode (e.g., "classic-3" means 3 bingos required)
-        const modeMatch = room.gameMode.match(/classic-(\d+)/);
-        const requiredBingos = modeMatch ? parseInt(modeMatch[1], 10) : 1;
+        const modeMatch = /classic-(\d+)/.exec(room.gameMode);
+        const requiredBingos = modeMatch ? Number.parseInt(modeMatch[1], 10) : 1;
 
         // Check if the claiming team has won
         const winCheck = checkTeamBingoWin(
@@ -135,27 +169,42 @@ export async function POST(
           });
 
           // Track stats: increment gamesWon and totalBingos for winning team players
+          // Do this asynchronously to avoid blocking the response
           const allPlayers = await db.player.findByRoomId(roomId);
           const winningTeamPlayers = allPlayers.filter((p) => p.team_index === player.team_index);
           const losingTeamPlayers = allPlayers.filter((p) => p.team_index !== player.team_index);
 
+          // Update stats in parallel (fire and forget to avoid blocking)
+          const statsPromises: Promise<unknown>[] = [];
+          
           // Update stats for winning team players
           for (const winningPlayer of winningTeamPlayers) {
-            await db.user.incrementStats(winningPlayer.user_id.toString(), {
-              gamesPlayed: 1,
-              gamesWon: 1,
-              totalBingos: requiredBingos,
-              gameMode: room.gameMode,
-            });
+            statsPromises.push(
+              db.user.incrementStats(winningPlayer.user_id.toString(), {
+                gamesPlayed: 1,
+                gamesWon: 1,
+                totalBingos: requiredBingos,
+                gameMode: room.gameMode,
+              }).catch((err) => {
+                console.error(`Error updating stats for winning player ${winningPlayer.user_id}:`, err);
+              })
+            );
           }
 
           // Update stats for losing team players (only gamesPlayed)
           for (const losingPlayer of losingTeamPlayers) {
-            await db.user.incrementStats(losingPlayer.user_id.toString(), {
-              gamesPlayed: 1,
-              gameMode: room.gameMode,
-            });
+            statsPromises.push(
+              db.user.incrementStats(losingPlayer.user_id.toString(), {
+                gamesPlayed: 1,
+                gameMode: room.gameMode,
+              }).catch((err) => {
+                console.error(`Error updating stats for losing player ${losingPlayer.user_id}:`, err);
+              })
+            );
           }
+
+          // Don't wait for stats updates - fire and forget
+          void Promise.all(statsPromises);
 
           // Broadcast win event
           await pusherServer.trigger(`room-${roomId}`, "team-won", {
@@ -202,34 +251,6 @@ export async function POST(
         winningTeam,
         winningLines,
       });
-    } else {
-      // Lockout mode - use old system (per-player marking)
-      const { player: updatedPlayer, wasAdded } = await db.player.toggleMarkedItem(
-        roomId,
-        session.user.id,
-        cellIndex
-      );
-
-      const user = await db.user.findById(session.user.id);
-      await db.activity.create({
-        room_id: roomId,
-        user_id: session.user.id,
-        user_name: user?.name || "Unknown",
-        action: wasAdded ? "marked" : "unmarked",
-        item_title: itemTitle,
-        cell_index: cellIndex,
-        team_index: updatedPlayer.team_index,
-      });
-
-      await pusherServer.trigger(`room-${roomId}`, "item-marked", {
-        userId: session.user.id,
-        userName: user?.name || "Unknown",
-        cellIndex,
-        itemTitle,
-        marked: wasAdded,
-      });
-
-      return NextResponse.json({ success: true, markedItems: updatedPlayer.marked_items });
     }
   } catch (error) {
     console.error("Error marking item:", error);
