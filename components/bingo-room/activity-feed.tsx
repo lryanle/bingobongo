@@ -134,6 +134,43 @@ export default function ActivityFeed({
       );
     }
     
+    if (activity.action === "unmarked" && activity.itemTitle) {
+      return (
+        <div 
+          key={activity.id} 
+          className="flex items-center gap-2 text-sm group"
+          role="none"
+          tabIndex={-1}
+          onMouseEnter={() => setHoveredActivityId(activity.id)}
+          onMouseLeave={() => setHoveredActivityId(null)}
+        >
+          {/* Team circle with number */}
+          <div
+            className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+            style={{ backgroundColor: teamInfo.color }}
+          >
+            {teamInfo.number}
+          </div>
+          {/* Username and action */}
+          <div className="flex items-center gap-1 flex-1 min-w-0">
+            <span
+              className="font-semibold text-foreground"
+              style={{ color: teamInfo.color }}
+            >
+              {activity.userName}
+            </span>
+            <span className="text-muted-foreground">has unmarked</span>
+            <span className="text-foreground font-medium truncate">{activity.itemTitle}</span>
+          </div>
+          {isHovered && (
+            <span className="text-muted-foreground/30 text-xs font-mono shrink-0">
+              {timestamp}
+            </span>
+          )}
+        </div>
+      );
+    }
+    
     if (activity.action === "joined") {
       return (
         <div 

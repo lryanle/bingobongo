@@ -30,25 +30,25 @@ export async function POST(
       return NextResponse.json({ error: "Player not in room" }, { status: 403 });
     }
 
-    // Update marked items
-    const markedItems = player.marked_items.includes(cellIndex)
-      ? player.marked_items.filter((idx) => idx !== cellIndex)
-      : [...player.marked_items, cellIndex];
-
-    await db.player.update(roomId, session.user.id, {
-      marked_items: markedItems,
-    });
+    // Atomically toggle marked item to prevent race conditions
+    // This ensures concurrent requests don't overwrite each other's changes
+    const { player: updatedPlayer, wasAdded } = await db.player.toggleMarkedItem(
+      roomId,
+      session.user.id,
+      cellIndex
+    );
 
     // Create activity with team_index
+    // Use correct action based on whether item was marked or unmarked
     const user = await db.user.findById(session.user.id);
     await db.activity.create({
       room_id: roomId,
       user_id: session.user.id,
       user_name: user?.name || "Unknown",
-      action: "marked",
+      action: wasAdded ? "marked" : "unmarked",
       item_title: itemTitle,
       cell_index: cellIndex,
-      team_index: player.team_index,
+      team_index: updatedPlayer.team_index,
     });
 
     // Broadcast item marked
@@ -57,10 +57,10 @@ export async function POST(
       userName: user?.name || "Unknown",
       cellIndex,
       itemTitle,
-      marked: !player.marked_items.includes(cellIndex),
+      marked: wasAdded,
     });
 
-    return NextResponse.json({ success: true, markedItems });
+    return NextResponse.json({ success: true, markedItems: updatedPlayer.marked_items });
   } catch (error) {
     console.error("Error marking item:", error);
     return NextResponse.json(

@@ -277,6 +277,8 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
       const roomId = await response.text();
       
       if (roomId) {
+        // Reset submitting state before navigation
+        setIsSubmitting(false);
         // Redirect to the created room
         router.push(`/bingo/${roomId}`);
       } else {
@@ -286,6 +288,8 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
       console.error('There was a problem creating the room:', e);
       setIsSubmitting(false);
       alert('Failed to create room. Please try again.');
+      // Re-throw error so caller can handle it
+      throw e;
     }
   };
 
@@ -318,7 +322,6 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
     if (!pendingRoomData || !leaderid) return;
     
     setIsSubmitting(true);
-    setShowOverwriteDialog(false);
     
     const roomData = {
       roomName: pendingRoomData.roomName,
@@ -330,7 +333,15 @@ export default function CreateBingo ({ partyleader, leaderid }: CreateBingoProps
       ownerId: leaderid,
     };
 
-    await createRoom(roomData);
+    try {
+      await createRoom(roomData);
+      // Only close dialog on success - createRoom handles navigation
+      setShowOverwriteDialog(false);
+    } catch (error) {
+      // Error is already handled in createRoom (shows alert)
+      // Dialog remains open so user can try again or cancel
+      setIsSubmitting(false);
+    }
   };
 
   return (

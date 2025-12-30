@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useLayoutEffect } from "react";
+import { useEffect, useState, useLayoutEffect, useRef } from "react";
 import BingoCard, { BingoCardProps } from "@/components/bingo-card/bingocard";
 import PlayerList from "./player-list";
 import ActivityFeed from "./activity-feed";
@@ -55,9 +55,23 @@ export default function BingoRoom({
   const [players, setPlayers] = useState(initialPlayers);
   const [activities, setActivities] = useState(initialActivities);
   const [markedItems, setMarkedItems] = useState<number[]>(initialMarkedItems);
-  const [selectedTeam, setSelectedTeam] = useState<number | undefined>(
-    initialPlayers.find((p) => p.userId === session.data?.user?.id)?.teamIndex
-  );
+  
+  // Initialize selectedTeam to 0 (first team) by default
+  // This allows new users to join immediately without waiting
+  // The useEffect below will update it to the actual team when session loads
+  // if the user is already in the room
+  const [selectedTeam, setSelectedTeam] = useState<number>(0);
+  
+  // Update selectedTeam when session data becomes available
+  useEffect(() => {
+    const currentUserId = session.data?.user?.id;
+    if (currentUserId) {
+      const currentPlayer = players.find((p) => p.userId === currentUserId);
+      if (currentPlayer?.teamIndex !== undefined && currentPlayer.teamIndex !== selectedTeam) {
+        setSelectedTeam(currentPlayer.teamIndex);
+      }
+    }
+  }, [session.data?.user?.id, players, selectedTeam]);
 
   // Ensure teams is always an array
   const teams = initialRoom.teams && Array.isArray(initialRoom.teams) && initialRoom.teams.length > 0
@@ -81,8 +95,17 @@ export default function BingoRoom({
     })
   );
 
-  // Join room on mount
+  // Join room on mount and when selectedTeam changes
+  // Only join if we have a session (user is authenticated) and selectedTeam is defined
   useEffect(() => {
+    const currentUserId = session.data?.user?.id;
+    if (!currentUserId) {
+      // Wait for session to load before joining
+      return;
+    }
+
+    // selectedTeam is always defined (defaults to 0 for new users)
+
     const joinRoom = async () => {
       try {
         await fetch(`/api/rooms/${roomId}/join`, {
@@ -96,7 +119,7 @@ export default function BingoRoom({
     };
 
     joinRoom();
-  }, [roomId, selectedTeam]);
+  }, [roomId, selectedTeam, session.data?.user?.id]);
 
   // Track connection status for disconnect/reconnect
   useEffect(() => {
@@ -133,6 +156,7 @@ export default function BingoRoom({
       const now = Date.now();
       if (!wasConnected && now - lastDisconnectTime > DEBOUNCE_MS) {
         wasConnected = true;
+        lastDisconnectTime = now; // Update timing to prevent rapid reconnect attempts
         fetch(`/api/rooms/${roomId}/connection`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -219,47 +243,94 @@ export default function BingoRoom({
 
     channel.bind("player-joined", (data: { userId: string; userName: string }) => {
       fetch(`/api/rooms/${roomId}/players`)
-        .then((res) => res.json())
-        .then((newPlayers) => setPlayers(newPlayers));
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error(`Failed to fetch players: ${res.status}`);
+          }
+          return res.json();
+        })
+        .then((newPlayers) => setPlayers(newPlayers))
+        .catch((err) => console.error("Error fetching players:", err));
       
       fetch(`/api/rooms/${roomId}/activities?limit=50`)
-        .then((res) => res.json())
-        .then((newActivities) => setActivities(newActivities));
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error(`Failed to fetch activities: ${res.status}`);
+          }
+          return res.json();
+        })
+        .then((newActivities) => setActivities(newActivities))
+        .catch((err) => console.error("Error fetching activities:", err));
     });
 
     channel.bind("player-left", (data: { userId: string; userName: string }) => {
       fetch(`/api/rooms/${roomId}/players`)
-        .then((res) => res.json())
-        .then((newPlayers) => setPlayers(newPlayers));
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error(`Failed to fetch players: ${res.status}`);
+          }
+          return res.json();
+        })
+        .then((newPlayers) => setPlayers(newPlayers))
+        .catch((err) => console.error("Error fetching players:", err));
       
       fetch(`/api/rooms/${roomId}/activities?limit=50`)
-        .then((res) => res.json())
-        .then((newActivities) => setActivities(newActivities));
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error(`Failed to fetch activities: ${res.status}`);
+          }
+          return res.json();
+        })
+        .then((newActivities) => setActivities(newActivities))
+        .catch((err) => console.error("Error fetching activities:", err));
     });
 
     channel.bind("player-disconnected", (data: { userId: string; userName: string }) => {
       fetch(`/api/rooms/${roomId}/activities?limit=50`)
-        .then((res) => res.json())
-        .then((newActivities) => setActivities(newActivities));
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error(`Failed to fetch activities: ${res.status}`);
+          }
+          return res.json();
+        })
+        .then((newActivities) => setActivities(newActivities))
+        .catch((err) => console.error("Error fetching activities:", err));
     });
 
     channel.bind("player-reconnected", (data: { userId: string; userName: string }) => {
       fetch(`/api/rooms/${roomId}/activities?limit=50`)
-        .then((res) => res.json())
-        .then((newActivities) => setActivities(newActivities));
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error(`Failed to fetch activities: ${res.status}`);
+          }
+          return res.json();
+        })
+        .then((newActivities) => setActivities(newActivities))
+        .catch((err) => console.error("Error fetching activities:", err));
     });
 
     channel.bind("team-changed", (data: { userId: string; userName: string; teamIndex: number }) => {
       // Refresh players for all users
       fetch(`/api/rooms/${roomId}/players`)
-        .then((res) => res.json())
-        .then((newPlayers) => setPlayers(newPlayers));
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error(`Failed to fetch players: ${res.status}`);
+          }
+          return res.json();
+        })
+        .then((newPlayers) => setPlayers(newPlayers))
+        .catch((err) => console.error("Error fetching players:", err));
       
       // For current user's own team change, don't refresh activities (optimistic update already handled it)
       // For other users, refresh activities normally
       if (data.userId !== session.data?.user?.id) {
         fetch(`/api/rooms/${roomId}/activities?limit=50`)
-          .then((res) => res.json())
+          .then((res) => {
+            if (!res.ok) {
+              throw new Error(`Failed to fetch activities: ${res.status}`);
+            }
+            return res.json();
+          })
           .then((newActivities) => {
             // Deduplicate activities by ID and sort by createdAt
             setActivities((prev) => {
@@ -273,7 +344,8 @@ export default function BingoRoom({
                 new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
               );
             });
-          });
+          })
+          .catch((err) => console.error("Error fetching activities:", err));
       }
     });
 
@@ -286,22 +358,36 @@ export default function BingoRoom({
     }) => {
       // Update marked items for the user who marked it
       if (data.userId === session.data?.user?.id) {
-        setMarkedItems((prev) =>
-          data.marked
-            ? [...prev, data.cellIndex]
-            : prev.filter((idx) => idx !== data.cellIndex)
-        );
+        setMarkedItems((prev) => {
+          if (data.marked) {
+            // Only add if not already present (prevents duplicates from optimistic updates)
+            return prev.includes(data.cellIndex) ? prev : [...prev, data.cellIndex];
+          } else {
+            // Remove if present
+            return prev.filter((idx) => idx !== data.cellIndex);
+          }
+        });
       }
       
       // Refresh players to update marked items count
       fetch(`/api/rooms/${roomId}/players`)
-        .then((res) => res.json())
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error(`Failed to fetch players: ${res.status}`);
+          }
+          return res.json();
+        })
         .then((newPlayers) => setPlayers(newPlayers))
         .catch((err) => console.error("Error fetching players:", err));
       
       // Refresh activities
       fetch(`/api/rooms/${roomId}/activities?limit=50`)
-        .then((res) => res.json())
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error(`Failed to fetch activities: ${res.status}`);
+          }
+          return res.json();
+        })
         .then((newActivities) => setActivities(newActivities))
         .catch((err) => console.error("Error fetching activities:", err));
     });
@@ -317,41 +403,60 @@ export default function BingoRoom({
   }, [roomId, session.data?.user?.id]);
 
   // Handle cell click with optimistic update
+  // Track pending requests per cell to prevent concurrent requests
+  const pendingCellRequests = useRef<Set<number>>(new Set());
+  
   const handleCellClick = async (index: number) => {
+    // Prevent concurrent requests for the same cell
+    if (pendingCellRequests.current.has(index)) {
+      return;
+    }
+
     const cell = bingoData[index];
-    const isMarked = markedItems.includes(index);
-
-    // Optimistically update UI immediately
-    const optimisticMarkedItems = isMarked
-      ? markedItems.filter((idx) => idx !== index)
-      : [...markedItems, index];
-    setMarkedItems(optimisticMarkedItems);
-
-    try {
-      const response = await fetch(`/api/rooms/${roomId}/mark`, {
+    
+    // Use functional update to get the latest state
+    setMarkedItems((prevMarkedItems) => {
+      const isMarked = prevMarkedItems.includes(index);
+      
+      // Optimistically update UI immediately
+      const optimisticMarkedItems = isMarked
+        ? prevMarkedItems.filter((idx) => idx !== index)
+        : [...prevMarkedItems, index];
+      
+      // Track this request
+      pendingCellRequests.current.add(index);
+      
+      // Make API call with the optimistic state
+      fetch(`/api/rooms/${roomId}/mark`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           cellIndex: index,
           itemTitle: cell.title,
         }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        // Only update if server response differs from optimistic update
-        if (JSON.stringify(data.markedItems.sort()) !== JSON.stringify(optimisticMarkedItems.sort())) {
-          setMarkedItems(data.markedItems);
-        }
-      } else {
-        // Revert optimistic update on error
-        setMarkedItems(markedItems);
-      }
-    } catch (error) {
-      console.error("Error marking item:", error);
-      // Revert optimistic update on error
-      setMarkedItems(markedItems);
-    }
+      })
+        .then(async (response) => {
+          if (response.ok) {
+            const data = await response.json();
+            // Update with server response (server has the source of truth)
+            setMarkedItems(data.markedItems);
+          } else {
+            // Revert optimistic update on error
+            setMarkedItems(prevMarkedItems);
+          }
+        })
+        .catch((error) => {
+          console.error("Error marking item:", error);
+          // Revert optimistic update on error
+          setMarkedItems(prevMarkedItems);
+        })
+        .finally(() => {
+          // Remove from pending requests
+          pendingCellRequests.current.delete(index);
+        });
+      
+      return optimisticMarkedItems;
+    });
   };
 
   // Handle team selection with optimistic update
@@ -384,7 +489,12 @@ export default function BingoRoom({
       if (response.ok) {
         // Refresh players list to get server state (only if different)
         fetch(`/api/rooms/${roomId}/players`)
-          .then((res) => res.json())
+          .then((res) => {
+            if (!res.ok) {
+              throw new Error(`Failed to fetch players: ${res.status}`);
+            }
+            return res.json();
+          })
           .then((newPlayers) => {
             // Only update if there are actual differences
             const currentPlayer = newPlayers.find((p: typeof newPlayers[0]) => p.userId === session.data?.user?.id);
@@ -398,7 +508,12 @@ export default function BingoRoom({
         // This prevents duplicate activities from Pusher event
         setTimeout(() => {
           fetch(`/api/rooms/${roomId}/activities?limit=1`)
-            .then((res) => res.json())
+            .then((res) => {
+              if (!res.ok) {
+                throw new Error(`Failed to fetch activities: ${res.status}`);
+              }
+              return res.json();
+            })
             .then((newActivities) => {
               if (newActivities.length > 0) {
                 const newActivity = newActivities[0];

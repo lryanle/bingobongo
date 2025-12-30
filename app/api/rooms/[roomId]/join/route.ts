@@ -81,10 +81,12 @@ export async function POST(
       // Don't create "joined" activity if player already exists
     } else {
       // Create new player
+      // Default to team 0 if teamIndex is undefined
+      const defaultTeamIndex = teamIndex ?? 0;
       await db.player.create({
         room_id: roomId,
         user_id: session.user.id,
-        team_index: teamIndex,
+        team_index: defaultTeamIndex,
         marked_items: [],
       });
 
@@ -94,7 +96,7 @@ export async function POST(
         user_id: session.user.id,
         user_name: userName,
         action: "joined",
-        team_index: teamIndex,
+        team_index: defaultTeamIndex,
       });
 
       // Broadcast player joined

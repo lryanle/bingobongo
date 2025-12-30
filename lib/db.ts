@@ -49,12 +49,12 @@ async function getCollection<T extends Document>(name: string): Promise<Collecti
 // Account operations
 export const accounts = {
   async findById(id: string | ObjectId): Promise<Account | null> {
-    const collection = await getCollection<Account>("account");
+    const collection = await getCollection<Account>("Accounts");
     return collection.findOne({ _id: toObjectId(id) });
   },
 
   async findByProvider(provider: string, providerAccountId: string): Promise<Account | null> {
-    const collection = await getCollection<Account>("account");
+    const collection = await getCollection<Account>("Accounts");
     return collection.findOne({
       provider,
       provider_account_id: providerAccountId,
@@ -62,7 +62,7 @@ export const accounts = {
   },
 
   async create(data: CreateAccountInput): Promise<Account> {
-    const collection = await getCollection<Account>("account");
+    const collection = await getCollection<Account>("Accounts");
     const result = await collection.insertOne({
       _id: new ObjectId(),
       ...data,
@@ -74,7 +74,7 @@ export const accounts = {
   },
 
   async delete(id: string | ObjectId): Promise<void> {
-    const collection = await getCollection<Account>("account");
+    const collection = await getCollection<Account>("Accounts");
     await collection.deleteOne({ _id: toObjectId(id) });
   },
 };
@@ -82,12 +82,12 @@ export const accounts = {
 // Session operations
 export const sessions = {
   async findByToken(sessionToken: string): Promise<Session | null> {
-    const collection = await getCollection<Session>("session");
+    const collection = await getCollection<Session>("Sessions");
     return collection.findOne({ session_token: sessionToken });
   },
 
   async create(data: CreateSessionInput): Promise<Session> {
-    const collection = await getCollection<Session>("session");
+    const collection = await getCollection<Session>("Sessions");
     const result = await collection.insertOne({
       _id: new ObjectId(),
       ...data,
@@ -99,7 +99,7 @@ export const sessions = {
   },
 
   async update(sessionToken: string, data: Partial<CreateSessionInput>): Promise<Session> {
-    const collection = await getCollection<Session>("session");
+    const collection = await getCollection<Session>("Sessions");
     const updateData: any = { ...data };
     if (data.user_id) {
       updateData.user_id = toObjectId(data.user_id);
@@ -114,7 +114,7 @@ export const sessions = {
   },
 
   async delete(sessionToken: string): Promise<void> {
-    const collection = await getCollection<Session>("session");
+    const collection = await getCollection<Session>("Sessions");
     await collection.deleteOne({ session_token: sessionToken });
   },
 };
@@ -122,17 +122,17 @@ export const sessions = {
 // User operations
 export const users = {
   async findById(id: string | ObjectId): Promise<User | null> {
-    const collection = await getCollection<User>("user");
+    const collection = await getCollection<User>("Users");
     return collection.findOne({ _id: toObjectId(id) });
   },
 
   async findByEmail(email: string): Promise<User | null> {
-    const collection = await getCollection<User>("user");
+    const collection = await getCollection<User>("Users");
     return collection.findOne({ email });
   },
 
   async create(data: CreateUserInput): Promise<User> {
-    const collection = await getCollection<User>("user");
+    const collection = await getCollection<User>("Users");
     const result = await collection.insertOne({
       _id: new ObjectId(),
       created: new Date(),
@@ -144,7 +144,7 @@ export const users = {
   },
 
   async update(id: string | ObjectId, data: Partial<CreateUserInput>): Promise<User> {
-    const collection = await getCollection<User>("user");
+    const collection = await getCollection<User>("Users");
     await collection.updateOne(
       { _id: toObjectId(id) },
       { $set: data }
@@ -155,7 +155,7 @@ export const users = {
   },
 
   async delete(id: string | ObjectId): Promise<void> {
-    const collection = await getCollection<User>("user");
+    const collection = await getCollection<User>("Users");
     await collection.deleteOne({ _id: toObjectId(id) });
   },
 };
@@ -377,6 +377,67 @@ export const players = {
       user_id: toObjectId(userId),
     });
   },
+
+  /**
+   * Atomically toggle a marked item in the player's marked_items array.
+   * This prevents race conditions when multiple requests try to mark/unmark items simultaneously.
+   * Returns the updated player and whether the item was added (true) or removed (false).
+   */
+  async toggleMarkedItem(
+    roomId: string | ObjectId,
+    userId: string | ObjectId,
+    cellIndex: number
+  ): Promise<{ player: Player; wasAdded: boolean }> {
+    const collection = await getCollection<Player>("players");
+    
+    // Get current state to determine operation
+    const currentPlayer = await collection.findOne({
+      room_id: toObjectId(roomId),
+      user_id: toObjectId(userId),
+    });
+
+    if (!currentPlayer) {
+      throw new Error("Player not found");
+    }
+
+    const wasMarked = currentPlayer.marked_items.includes(cellIndex);
+    const previousLength = currentPlayer.marked_items.length;
+    
+    // Use atomic operation to toggle the item
+    const updateOperation = wasMarked
+      ? { $pull: { marked_items: cellIndex } } // Remove if exists
+      : { $addToSet: { marked_items: cellIndex } }; // Add if not exists
+
+    // Atomically update and return the updated document
+    const result = await collection.findOneAndUpdate(
+      {
+        room_id: toObjectId(roomId),
+        user_id: toObjectId(userId),
+      },
+      {
+        ...updateOperation,
+        $set: { last_active: new Date() },
+      },
+      { returnDocument: "after" }
+    );
+
+    if (!result?.value) {
+      throw new Error("Failed to toggle marked item");
+    }
+
+    // Determine wasAdded by checking if the array length actually increased
+    // This correctly handles concurrent requests: if another request already added
+    // the item, our $addToSet will be a no-op and the length won't increase
+    const newLength = result.value.marked_items.length;
+    // wasAdded is true only if we tried to add (!wasMarked) AND the length increased
+    // (indicating our operation actually added the item, not a concurrent request)
+    const wasAdded = !wasMarked && newLength > previousLength;
+
+    return {
+      player: result.value,
+      wasAdded,
+    };
+  },
 };
 
 // Activity operations
@@ -388,6 +449,11 @@ export const activities = {
       .sort({ created_at: -1 })
       .limit(limit)
       .toArray();
+  },
+
+  async countByRoomId(roomId: string | ObjectId): Promise<number> {
+    const collection = await getCollection<Activity>("activities");
+    return collection.countDocuments({ room_id: toObjectId(roomId) });
   },
 
   async create(data: CreateActivityInput): Promise<Activity> {

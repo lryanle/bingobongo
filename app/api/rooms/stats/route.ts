@@ -22,9 +22,8 @@ export async function GET() {
     const players = await db.player.findByRoomId(room._id.toString());
     const playerCount = players.length;
 
-    // Get activity count
-    const activities = await db.activity.findByRoomId(room._id.toString(), 1000);
-    const activityCount = activities.length;
+    // Get activity count using proper count query
+    const activityCount = await db.activity.countByRoomId(room._id.toString());
 
     // Get game mode name
     const getModeName = (gameMode: string) => {

@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Copy, Check, Eye, EyeOff } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/components/ui/use-toast";
 
 interface RoomLinkProps {
@@ -12,13 +12,27 @@ interface RoomLinkProps {
 export default function RoomLink({ roomId }: RoomLinkProps) {
   const [copied, setCopied] = useState(false);
   const [isVisible, setIsVisible] = useState(false); // Hidden by default
+  const [roomUrl, setRoomUrl] = useState<string>("");
   const { toast } = useToast();
   
-  const roomUrl = globalThis.window
-    ? `${globalThis.window.location.origin}/bingo/${roomId}`
-    : `https://bingo.example.com/bongo?id=${roomId}`;
+  // Set room URL only on client side to avoid hydration mismatch
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setRoomUrl(`${window.location.origin}/bingo/${roomId}`);
+    }
+  }, [roomId]);
 
   const handleCopy = async () => {
+    // Don't copy if roomUrl is not yet populated
+    if (!roomUrl) {
+      toast({
+        title: "Error",
+        description: "Room link is not ready yet",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       await navigator.clipboard.writeText(roomUrl);
       setCopied(true);
@@ -64,6 +78,7 @@ export default function RoomLink({ roomId }: RoomLinkProps) {
         size="sm"
         variant="ghost"
         className="h-8 w-8 p-0"
+        disabled={!roomUrl}
       >
         {copied ? (
           <Check className="h-4 w-4 text-green-500" />

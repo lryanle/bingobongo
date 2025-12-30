@@ -32,12 +32,13 @@ const bingoCellVariants = cva(
 );
 
 export interface BingoCellProps extends VariantProps<typeof bingoCellVariants> {
-	className?: string;
-	title: string;
-	slotItems?: Array<{ color: string; number: number }>;
-	disabled?: boolean;
-	favorite?: boolean;
-	locked?: boolean;
+	readonly className?: string;
+	readonly title: string;
+	readonly slotItems?: Array<{ color: string; number: number }>;
+	readonly disabled?: boolean;
+	readonly favorite?: boolean;
+	readonly locked?: boolean;
+	readonly onClick?: () => void | Promise<void>;
 }
 
 export default function BingoCell({
@@ -50,6 +51,7 @@ export default function BingoCell({
 	disabled,
 	favorite,
 	locked,
+	onClick,
 }: BingoCellProps) {
 	const displaySlotItems =
 		property === "slotted" &&
@@ -58,8 +60,27 @@ export default function BingoCell({
 		slotItems.length > 0 &&
 		!action?.includes("disabled");
 
+	const handleClick = () => {
+		if (!disabled && !locked && onClick) {
+			onClick();
+		}
+	};
+
+	const handleKeyDown = (e: React.KeyboardEvent) => {
+		if ((e.key === "Enter" || e.key === " ") && !disabled && !locked && onClick) {
+			e.preventDefault();
+			onClick();
+		}
+	};
+
 	return (
-		<div className="cursor-pointer">
+		<div 
+			className={cn("cursor-pointer", disabled && "cursor-not-allowed")}
+			onClick={handleClick}
+			onKeyDown={handleKeyDown}
+			role={onClick ? "button" : undefined}
+			tabIndex={onClick && !disabled && !locked ? 0 : undefined}
+		>
 			{favorite && (
 				<div className="absolute flex items-start z-10 p-1 opacity-50 w-6 h-6">
 					{bingocellIcon("favorite", "#FACC15")}
