@@ -159,6 +159,9 @@ export interface UpdateRoomInput {
   winningTeam?: number;
   gameFinished?: boolean;
   resetBoard?: boolean; // Flag to reset the board
+  restartVotes?: Array<DBObjectId>;
+  restartCountdown?: number;
+  restartScheduled?: Date;
 }
 
 export interface CreateChatRoomInput {
